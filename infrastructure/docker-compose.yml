@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # Local PostGIS database service (if not using cloud Supabase)
+  postgis:
+    image: postgis/postgis:16-3.4
+    container_name: nagardrishti_postgis
+    environment:
+      POSTGRES_DB: nagardrishti
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      - ../database/supabase_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ../database/seeds/001_dev_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+
+  # NagarDrishti FastAPI Backend
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../infrastructure/Dockerfile.backend
+    container_name: nagardrishti_backend
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgrespassword@postgis:5432/nagardrishti
+      - ENVIRONMENT=development
+      - DEBUG=True
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgis
+
+  # NagarDrishti React Frontend
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../infrastructure/Dockerfile.frontend
+    container_name: nagardrishti_frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgis_data:

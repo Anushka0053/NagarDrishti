@@ -1,0 +1,52 @@
+# Secrets and local environment (keep shareable examples)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# JavaScript dependencies and generated builds
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Python environments, caches and packaging
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+
+# Logs and local editor / OS files
+*.log
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# Local tooling and source specification artifacts
+.agents/
+.codex/
+powershell.cmd
+/extract_srs.py
+/NagarDrishti_Detailed_SRS_v1.1.docx
+
+# Publish only the consolidated, maintained documentation.
+# Add an explicit exception below when introducing another public Markdown file.
+*.[mM][dD]
+!/README.md
+!/PROJECT_GUIDE.md
+!/SECURITY.md
