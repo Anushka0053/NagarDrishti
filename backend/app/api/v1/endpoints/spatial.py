@@ -1,4 +1,5 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -10,16 +11,28 @@ from app.core.config import settings
 router = APIRouter()
 
 
+class ResolveLocationRequest(BaseModel):
+    latitude: float = Field(..., ge=-90.0, le=90.0, description="Latitude coordinate")
+    longitude: float = Field(..., ge=-180.0, le=180.0, description="Longitude coordinate")
+
+
 @router.post("/identify", response_model=List[IdentifyResult], tags=["Spatial Analysis"])
 def identify_features_at_point(request: IdentifyRequest, db: Session = Depends(get_db)):
     """Identify GIS features, administrative hierarchy and records at clicked map coordinate."""
     return SpatialService.identify_at_coordinate(db, request)
 
 
+@router.post("/resolve-location", tags=["Spatial Analysis"])
+def resolve_location(request: ResolveLocationRequest, db: Session = Depends(get_db)):
+    """
+    Resolves administrative hierarchy (State > District > City > Ward) for user location / coordinates.
+    """
+    return SpatialService.resolve_location_hierarchy(db, request.latitude, request.longitude)
+
+
 @router.post("/buffer", tags=["Spatial Analysis"])
 def generate_buffer(request: BufferRequest, db: Session = Depends(get_db)):
     """Generate PostGIS buffer polygon around origin point."""
-    # Compute buffer in PostGIS using geography for accurate meter distance
     from sqlalchemy import text
     query = text("""
         SELECT ST_AsGeoJSON(
@@ -101,7 +114,8 @@ def calculate_proximity(request: ProximityRequest, db: Session = Depends(get_db)
 @router.post("/routes", tags=["Spatial Analysis"])
 async def calculate_route(request: RouteRequest):
     """
-    Calculate route geometry using configured OSRM routing engine with civic issue overlays.
+    Calculate route geometry using configured OSRM routing engine.
+    If routing engine is unavailable, returns a clean service unavailable error (no fabricated straight-line).
     """
     url = f"{settings.ROUTING_API_URL}/route/v1/{request.profile}/{request.origin_longitude},{request.origin_latitude};{request.destination_longitude},{request.destination_latitude}?overview=full&geometries=geojson"
     try:
@@ -118,19 +132,13 @@ async def calculate_route(request: RouteRequest):
                         "route_geometry": primary_route.get("geometry"),
                         "civic_issues_along_route": []
                     }
-    except Exception:
-        pass
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Routing service is currently unreachable ({str(exc)}). Route calculation will be available in Phase 3."
+        )
 
-    # Fallback straight line representation if routing server is unreachable
-    return {
-        "distance_meters": 0,
-        "duration_seconds": 0,
-        "route_geometry": {
-            "type": "LineString",
-            "coordinates": [
-                [request.origin_longitude, request.origin_latitude],
-                [request.destination_longitude, request.destination_latitude]
-            ]
-        },
-        "note": "Straight line connection (routing provider unreachable)"
-    }
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="No valid road route found between the specified coordinates."
+    )

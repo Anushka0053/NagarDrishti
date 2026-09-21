@@ -25,6 +25,7 @@ export interface Ward {
   corporator_name?: string;
   area_sq_km?: number;
   population?: number;
+  geometry?: any;
 }
 
 export interface Sector {
@@ -91,6 +92,7 @@ export interface GISLayer {
   };
   freshness_sla_days: number;
   is_active: boolean;
+  display_order?: number;
 }
 
 export interface IdentifiedFeature {
@@ -107,6 +109,12 @@ export interface IdentifiedFeature {
   source_attribution_hi?: string;
   source_health?: string;
   last_updated?: string;
+  state?: string;
+  district?: string;
+  city_name?: string;
+  ward_name?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface CitizenReport {
@@ -163,4 +171,39 @@ export interface EntityIntelligence {
   ai_grounded_summary_hi?: string;
   ai_grounded_summary_en?: string;
   data_freshness_status: string;
+}
+
+export interface SearchResult {
+  id: string;
+  title: string;
+  subtitle: string;
+  type: 'city' | 'ward' | 'feature' | 'coordinate' | 'admin_unit';
+  category?: string | null;
+  city_id?: string | null;
+  ward_id?: string | null;
+  coordinates?: [number, number] | null;
+  zoom?: number;
+  bbox?: [number, number, number, number] | null;
+  geometry?: any;
+}
+
+export interface ResolvedLocation {
+  latitude: number;
+  longitude: number;
+  state: string;
+  state_code: string;
+  district_en: string;
+  district_hi: string;
+  city_id?: string | null;
+  city_en: string;
+  city_hi: string;
+  ulb_type?: string | null;
+  ward_id?: string | null;
+  ward_number?: number | null;
+  ward_code?: string | null;
+  ward_en?: string | null;
+  ward_hi?: string | null;
+  zone_en?: string | null;
+  corporator?: string | null;
+  is_exact_containment: boolean;
 }

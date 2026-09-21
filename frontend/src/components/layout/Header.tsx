@@ -1,19 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   Compass, 
   Search, 
   Globe, 
-  User, 
   Mic, 
-  Layers, 
+  MapPin, 
+  ChevronDown,
+  Layers,
   Sparkles,
-  MapPin,
-  ChevronDown
+  Building,
+  Navigation,
+  X,
+  Loader2
 } from 'lucide-react';
 import { useMapStore } from '../../store/mapStore';
+import { useLayerStore } from '../../store/layerStore';
 import { useFeedbackStore } from '../../store/feedbackStore';
-import { City } from '../../types';
+import { City, SearchResult } from '../../types';
+import { useCities, useUniversalSearch, searchApi } from '../../api';
 
 interface HeaderProps {
   cities: City[];
@@ -21,10 +26,26 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ cities }) => {
   const { t, i18n } = useTranslation();
-  const { activeCity, setActiveCity, toggleLeftSidebar, toggleInspector, toggleAnalyticsDrawer } = useMapStore();
+  const {
+    activeCity,
+    setActiveCity,
+    setActiveWard,
+    setTempMarker,
+    setInspectorOpen,
+    toggleLeftSidebar,
+    toggleInspector,
+    toggleAnalyticsDrawer,
+  } = useMapStore();
+  const { setSelectedFeature } = useLayerStore();
   const { openModal: openFeedbackModal } = useFeedbackStore();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isCityMenuOpen, setIsCityMenuOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const toggleLanguage = () => {
     const nextLang = i18n.language === 'hi' ? 'en' : 'hi';
@@ -34,6 +55,97 @@ export const Header: React.FC<HeaderProps> = ({ cities }) => {
   const handleCitySelect = (city: City) => {
     setActiveCity(city);
     setIsCityMenuOpen(false);
+  };
+
+  // Debounced search query
+  useEffect(() => {
+    const queryStr = searchQuery.trim();
+    if (queryStr.length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const timer = setTimeout(() => {
+      searchApi
+        .universalSearch(queryStr, activeCity?.id)
+        .then((res) => {
+          setSearchResults(res.results || []);
+          setIsSearchOpen(true);
+        })
+        .catch((err) => {
+          console.warn('[Search error]', err);
+        })
+        .finally(() => {
+          setIsSearching(false);
+        });
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, activeCity?.id]);
+
+  // Close search dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelectSearchResult = (item: SearchResult) => {
+    setIsSearchOpen(false);
+    setSearchQuery('');
+
+    if (item.type === 'coordinate' && item.coordinates) {
+      setTempMarker(item.coordinates);
+      setSelectedFeature({
+        name_en: item.title,
+        name_hi: item.title,
+        category: 'coordinate_pin',
+        properties: {
+          latitude: item.coordinates[1],
+          longitude: item.coordinates[0],
+        },
+        source_attribution_en: 'Direct Coordinate Lookup',
+        source_health: 'healthy',
+        latitude: item.coordinates[1],
+        longitude: item.coordinates[0],
+      });
+      setInspectorOpen(true);
+    } else if (item.type === 'city' && item.city_id) {
+      const foundCity = cities.find((c) => c.id === item.city_id);
+      if (foundCity) setActiveCity(foundCity);
+    } else if (item.type === 'ward') {
+      if (item.coordinates) setTempMarker(item.coordinates);
+      setActiveWard({
+        id: item.id,
+        city_id: item.city_id || activeCity?.id || '',
+        ward_number: 1,
+        name_en: item.title,
+        name_hi: item.title,
+        geometry: item.geometry,
+      });
+    } else if (item.type === 'feature') {
+      if (item.coordinates) setTempMarker(item.coordinates);
+      setSelectedFeature({
+        feature_id: item.id,
+        name_en: item.title,
+        name_hi: item.title,
+        category: item.category || 'civic_feature',
+        properties: {
+          feature_id: item.id,
+          name: item.title,
+          category: item.category,
+        },
+        source_attribution_en: 'NagarDrishti Master Features Catalog',
+        source_health: 'healthy',
+      });
+      setInspectorOpen(true);
+    }
   };
 
   return (
@@ -99,77 +211,106 @@ export const Header: React.FC<HeaderProps> = ({ cities }) => {
         </div>
       </div>
 
-      {/* Universal Search / Sarvam Natural Language Bar */}
-      <div className="flex-1 max-w-xl mx-4 hidden md:block">
+      {/* Universal Search Bar & Autocomplete Dropdown */}
+      <div ref={searchContainerRef} className="flex-1 max-w-md mx-4 relative hidden sm:block">
         <div className="relative flex items-center">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('app.search_placeholder')}
-            className="w-full bg-[#1C2541]/90 hover:bg-[#1C2541] focus:bg-[#1C2541] border border-[#2E3D60] focus:border-cyan-400 pl-9 pr-20 py-1.5 rounded-lg text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-400/50 transition-all shadow-inner"
+            onFocus={() => searchResults.length > 0 && setIsSearchOpen(true)}
+            placeholder={
+              i18n.language === 'hi'
+                ? 'सड़क, अस्पताल, वार्ड, या निर्देशांक खोजें...'
+                : 'Search roads, hospitals, wards, coordinates (e.g. 26.21, 78.18)...'
+            }
+            className="w-full bg-[#1C2541]/80 hover:bg-[#1C2541] focus:bg-[#1C2541] border border-[#2E3D60] focus:border-cyan-400/80 rounded-full pl-9 pr-16 py-1.5 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-400/50 transition-all font-sans"
           />
-          <div className="absolute right-1.5 flex items-center gap-1">
+
+          <div className="absolute right-2.5 flex items-center gap-1.5">
+            {isSearching && <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />}
+            {searchQuery && !isSearching && (
+              <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-white">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
-              title="Voice Query (Sarvam AI Speech-to-Text)"
-              onClick={() => openFeedbackModal()}
-              className="p-1 text-slate-400 hover:text-cyan-400 hover:bg-slate-700/50 rounded transition-colors"
+              onClick={() => alert('Voice search will be enabled with Sarvam AI STT integration in Phase 4.')}
+              title="Voice Search"
+              className="text-slate-400 hover:text-cyan-400 p-0.5"
             >
               <Mic className="w-3.5 h-3.5" />
             </button>
-            <div className="h-4 w-px bg-[#2E3D60]" />
-            <button
-              title="Grounded AI Civic Assistant"
-              className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded"
-            >
-              <Sparkles className="w-3 h-3 text-cyan-400" />
-              <span>AI</span>
-            </button>
           </div>
         </div>
+
+        {/* Search Results Dropdown */}
+        {isSearchOpen && searchResults.length > 0 && (
+          <div className="absolute top-full mt-1.5 left-0 right-0 bg-[#1C2541] border border-[#2E3D60] rounded-lg shadow-2xl overflow-hidden z-50 max-h-80 overflow-y-auto">
+            <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-cyan-400 tracking-wider bg-[#131B33] border-b border-[#2E3D60]">
+              {t('app.search_results')} ({searchResults.length})
+            </div>
+            {searchResults.map((res) => (
+              <button
+                key={res.id}
+                onClick={() => handleSelectSearchResult(res)}
+                className="w-full text-left px-3.5 py-2 hover:bg-[#253258] border-b border-[#2E3D60]/50 last:border-0 flex items-start gap-2.5 transition-colors"
+              >
+                <div className="mt-0.5 shrink-0">
+                  {res.type === 'coordinate' && <Navigation className="w-3.5 h-3.5 text-amber-400" />}
+                  {res.type === 'ward' && <Building className="w-3.5 h-3.5 text-cyan-400" />}
+                  {res.type === 'city' && <MapPin className="w-3.5 h-3.5 text-emerald-400" />}
+                  {res.type === 'feature' && <Sparkles className="w-3.5 h-3.5 text-indigo-400" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-100 truncate">{res.title}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{res.subtitle}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Action Controls & Language Switcher */}
+      {/* Right Action Tools & Controls */}
       <div className="flex items-center gap-2">
-        {/* Report Issue CTA Button */}
-        <button
-          onClick={() => openFeedbackModal()}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-semibold text-xs rounded-md shadow-md shadow-rose-900/30 transition-all"
-        >
-          <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-          <span>{t('nav.feedback')}</span>
-        </button>
-
-        {/* Hindi / English Language Toggle */}
+        {/* Language Switcher */}
         <button
           onClick={toggleLanguage}
-          title={t('app.language')}
+          title="Toggle Hindi / English"
           className="flex items-center gap-1 px-2.5 py-1.5 bg-[#1C2541] hover:bg-[#253258] border border-[#2E3D60] rounded-md text-xs font-semibold text-slate-200 transition-colors"
         >
           <Globe className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="font-mono">{i18n.language === 'hi' ? 'हिन्दी' : 'EN'}</span>
+          <span>{i18n.language === 'hi' ? 'English' : 'हिंदी'}</span>
         </button>
 
-        {/* Panel Toggles for Desktop/Tablet */}
-        <div className="h-5 w-px bg-[#2E3D60] mx-1 hidden sm:block" />
-
+        {/* Citizen Feedback Modal Trigger */}
         <button
-          onClick={toggleLeftSidebar}
-          title={t('sidebar.layers_tab')}
-          className="p-1.5 bg-[#1C2541] hover:bg-[#253258] border border-[#2E3D60] rounded-md text-slate-300 hover:text-cyan-400 transition-colors"
+          onClick={() => openFeedbackModal()}
+          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-slate-950 font-bold rounded-md text-xs shadow-md shadow-cyan-500/20 transition-all"
         >
-          <Layers className="w-4 h-4" />
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>{t('header.report_issue')}</span>
         </button>
 
-        {/* User Profile / Auth */}
-        <a
-          href="/login"
-          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1C2541] hover:bg-[#253258] border border-[#2E3D60] rounded-md text-xs text-slate-200 transition-colors"
-        >
-          <User className="w-3.5 h-3.5 text-slate-400" />
-          <span className="hidden sm:inline">{t('app.login')}</span>
-        </a>
+        {/* Panel Toggles */}
+        <div className="flex items-center gap-1 border-l border-[#2E3D60] pl-2">
+          <button
+            onClick={toggleLeftSidebar}
+            title="Toggle Left Sidebar"
+            className="p-1.5 text-slate-300 hover:text-cyan-400 hover:bg-[#1C2541] rounded transition-colors"
+          >
+            <Layers className="w-4 h-4" />
+          </button>
+          <button
+            onClick={toggleInspector}
+            title="Toggle Intelligence Inspector"
+            className="p-1.5 text-slate-300 hover:text-cyan-400 hover:bg-[#1C2541] rounded transition-colors"
+          >
+            <Sparkles className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </header>
   );

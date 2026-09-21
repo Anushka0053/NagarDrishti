@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     features,
     sources,
     spatial,
+    search,
     feedback,
     intelligence,
     ai,
@@ -22,6 +23,7 @@ api_router.include_router(layers.router, prefix="/layers", tags=["Layers"])
 api_router.include_router(features.router, prefix="/features", tags=["Features"])
 api_router.include_router(sources.router, prefix="/sources", tags=["Data Sources"])
 api_router.include_router(spatial.router, prefix="/spatial", tags=["Spatial Analysis"])
+api_router.include_router(search.router, prefix="/search", tags=["Search"])
 api_router.include_router(feedback.router, prefix="/feedback", tags=["Citizen Feedback"])
 api_router.include_router(intelligence.router, prefix="/intelligence", tags=["Civic Intelligence"])
 api_router.include_router(ai.router, prefix="/ai", tags=["Sarvam AI"])

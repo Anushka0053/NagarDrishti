@@ -45,10 +45,20 @@ def get_departments(db: Session = Depends(get_db)):
     return db.query(Department).filter(Department.is_active == True).order_by(Department.name_en.asc()).all()
 
 
+@router.get("/{layer_id}", response_model=GISLayerResponse, tags=["Layers"])
+def get_layer_by_id(layer_id: UUID, db: Session = Depends(get_db)):
+    """Retrieve detailed metadata and styling config for a specific GIS layer."""
+    layer = db.query(GISLayer).filter(GISLayer.id == layer_id, GISLayer.is_active == True).first()
+    if not layer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Layer '{layer_id}' not found.")
+    return layer
+
+
 @router.get("/{layer_id}/features", tags=["Layers"])
 def get_layer_features(
     layer_id: UUID,
     city_id: Optional[UUID] = Query(None, description="Filter by city"),
+    ward_id: Optional[UUID] = Query(None, description="Filter by ward"),
     bbox: Optional[str] = Query(None, description="Bounding box comma-separated: min_lng,min_lat,max_lng,max_lat"),
     db: Session = Depends(get_db)
 ):
@@ -60,4 +70,4 @@ def get_layer_features(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid bbox format. Expected: min_lng,min_lat,max_lng,max_lat")
 
-    return SpatialService.get_features_geojson(db, layer_id=layer_id, city_id=city_id, bbox=bbox_coords)
+    return SpatialService.get_features_geojson(db, layer_id=layer_id, city_id=city_id, ward_id=ward_id, bbox=bbox_coords)
