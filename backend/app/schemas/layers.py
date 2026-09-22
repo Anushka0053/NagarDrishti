@@ -81,6 +81,7 @@ class GISLayerResponse(BaseModel):
     legend_config: Dict[str, Any] = Field(default_factory=dict)
     filter_config: Optional[Dict[str, Any]] = None
     freshness_sla_days: int = 30
+    default_provenance: str = "official_verified"
     is_active: bool = True
 
     sector: Optional[SectorResponse] = None

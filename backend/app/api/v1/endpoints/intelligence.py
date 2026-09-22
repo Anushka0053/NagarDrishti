@@ -13,8 +13,14 @@ router = APIRouter()
 
 @router.get("/clusters", response_model=List[IssueClusterResponse], tags=["Civic Intelligence"])
 def get_active_issue_clusters(city_id: Optional[UUID] = Query(None), db: Session = Depends(get_db)):
-    """Retrieve active spatial issue clusters."""
-    query = text("""
+    """Retrieve active spatial issue clusters, optionally scoped to a city."""
+    extra_filter = ""
+    params = {}
+    if city_id:
+        extra_filter = " AND city_id = :city_id"
+        params["city_id"] = city_id
+
+    query = text(f"""
         SELECT 
             id,
             city_id,
@@ -28,12 +34,13 @@ def get_active_issue_clusters(city_id: Optional[UUID] = Query(None), db: Session
             unresolved_count,
             composite_risk_score,
             cluster_status,
+            provenance_type,
             first_reported_at,
             last_reported_at
         FROM issue_clusters
-        WHERE cluster_status = 'active';
+        WHERE cluster_status = 'active' {extra_filter};
     """)
-    rows = db.execute(query).fetchall()
+    rows = db.execute(query, params).fetchall()
     return [
         IssueClusterResponse(
             id=r.id,
@@ -48,6 +55,7 @@ def get_active_issue_clusters(city_id: Optional[UUID] = Query(None), db: Session
             unresolved_count=r.unresolved_count,
             composite_risk_score=r.composite_risk_score,
             cluster_status=r.cluster_status,
+            provenance_type=r.provenance_type or "internal_derived",
             first_reported_at=r.first_reported_at,
             last_reported_at=r.last_reported_at
         )

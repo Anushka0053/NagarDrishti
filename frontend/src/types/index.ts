@@ -95,6 +95,126 @@ export interface GISLayer {
   display_order?: number;
 }
 
+export type ProvenanceType = 
+  | 'official_verified' 
+  | 'community_open' 
+  | 'citizen_submitted' 
+  | 'internal_derived' 
+  | 'development_fixture';
+
+export type CoverageStatus = 
+  | 'available' 
+  | 'partial' 
+  | 'metadata_only' 
+  | 'integration_pending' 
+  | 'credential_required' 
+  | 'not_publicly_available' 
+  | 'unavailable' 
+  | 'development_only';
+
+export interface DataCoverage {
+  id: string;
+  city_id: string;
+  layer_id?: string;
+  layer_slug?: string;
+  layer_name_en?: string;
+  layer_name_hi?: string;
+  sector_id?: string;
+  sector_name_en?: string;
+  source_id?: string;
+  source_name_en?: string;
+  coverage_status: CoverageStatus;
+  feature_count: number;
+  geographic_coverage?: string;
+  temporal_coverage?: string;
+  authority_level?: string;
+  provenance_type: ProvenanceType;
+  last_source_update?: string;
+  last_successful_sync?: string;
+  completeness_notes?: string;
+}
+
+export interface CityCoverageSummary {
+  city_id: string;
+  city_name_en: string;
+  city_name_hi: string;
+  total_layers: number;
+  available_layers: number;
+  partial_layers: number;
+  unavailable_layers: number;
+  total_features: number;
+  coverages: DataCoverage[];
+}
+
+export interface CategoryBreakdown {
+  category: string;
+  category_name_en?: string;
+  category_name_hi?: string;
+  count: number;
+  open_count: number;
+  resolved_count: number;
+}
+
+export interface WardBreakdown {
+  ward_id?: string;
+  ward_number?: number;
+  ward_name_en?: string;
+  ward_name_hi?: string;
+  count: number;
+  open_count: number;
+  resolved_count: number;
+}
+
+export interface CityAnalytics {
+  city_id: string;
+  city_name_en: string;
+  city_name_hi: string;
+  total_reports: number;
+  open_reports: number;
+  resolved_reports: number;
+  in_progress_reports: number;
+  resolution_rate: number | null;
+  avg_resolution_hours?: number | null;
+  sla_adherence_rate?: number | null;
+  verified_features_count: number;
+  active_clusters_count: number;
+  category_breakdown: CategoryBreakdown[];
+  ward_breakdown: WardBreakdown[];
+  monthly_trend?: Array<{ month: string; submitted_count: number; resolved_count: number }>;
+  is_mock_data: boolean;
+  data_truth_note?: string | null;
+}
+
+export interface WardAnalytics {
+  ward_id: string;
+  ward_number: number;
+  ward_name_en: string;
+  ward_name_hi: string;
+  city_id: string;
+  total_reports: number;
+  open_reports: number;
+  resolved_reports: number;
+  in_progress_reports: number;
+  resolution_rate: number | null;
+  category_breakdown: CategoryBreakdown[];
+  features_count: number;
+}
+
+export interface SourceStatus {
+  source_id: string;
+  source_key: string;
+  name_en: string;
+  name_hi: string;
+  provider: string;
+  authority_level: string;
+  health_status: string;
+  is_configured: boolean;
+  access_type: string;
+  license_type: string;
+  notes?: string;
+  last_successful_sync?: string | null;
+}
+
 export interface IdentifiedFeature {
   feature_id?: string;
   layer_id?: string;
@@ -105,6 +225,7 @@ export interface IdentifiedFeature {
   category?: string;
   distance_meters?: number;
   properties: Record<string, any>;
+  provenance_type?: ProvenanceType;
   source_attribution_en?: string;
   source_attribution_hi?: string;
   source_health?: string;
@@ -128,6 +249,7 @@ export interface CitizenReport {
   description: string;
   severity_input: string;
   status: string;
+  provenance_type?: ProvenanceType;
   corroboration_count: number;
   latitude: number;
   longitude: number;
@@ -147,6 +269,7 @@ export interface IssueCluster {
   unresolved_count: number;
   composite_risk_score: number;
   cluster_status: string;
+  provenance_type?: ProvenanceType;
 }
 
 export interface EntityIntelligence {
@@ -207,3 +330,4 @@ export interface ResolvedLocation {
   corporator?: string | null;
   is_exact_containment: boolean;
 }
+

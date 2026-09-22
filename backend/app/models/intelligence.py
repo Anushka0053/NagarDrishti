@@ -20,6 +20,7 @@ class IssueCluster(Base):
     unresolved_count = Column(Integer, default=1, nullable=False)
     composite_risk_score = Column(Double, default=0.0, nullable=False)
     cluster_status = Column(String(50), default="active", nullable=False)
+    provenance_type = Column(String(50), default="internal_derived", nullable=False)
     first_reported_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
     last_reported_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)

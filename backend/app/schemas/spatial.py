@@ -22,6 +22,7 @@ class IdentifyResult(BaseModel):
     distance_meters: Optional[float] = None
     properties: Dict[str, Any] = Field(default_factory=dict)
     admin_hierarchy: Dict[str, Any] = Field(default_factory=dict)
+    provenance_type: Optional[str] = "official_verified"
     source_attribution_en: Optional[str] = None
     source_attribution_hi: Optional[str] = None
     source_health: Optional[str] = None

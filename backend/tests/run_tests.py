@@ -102,16 +102,35 @@ def test_fastapi_routes():
     app.dependency_overrides.clear()
     print("[OK] FastAPI routing, search & Phase 2 endpoints test passed!")
 
+from test_phase2_5 import (
+    test_provenance_and_coverage_schemas,
+    test_zero_reports_analytics_calculation,
+    test_osm_pipeline_transformation,
+    test_fastapi_phase2_5_endpoints,
+)
+
 def main():
     print("=" * 60)
-    print("NAGARDRISHTI -- PHASE 2 BACKEND AUTOMATED TEST SUITE")
+    print("NAGARDRISHTI -- PHASE 2 & 2.5 BACKEND AUTOMATED TEST SUITE")
     print("=" * 60)
     test_schemas()
     asyncio.run(test_adapters())
     test_fastapi_routes()
+    
+    print("\n--- Running Phase 2.5 Tests ---")
+    test_provenance_and_coverage_schemas()
+    print("[OK] Provenance and coverage schemas test passed!")
+    test_zero_reports_analytics_calculation()
+    print("[OK] Zero-reports analytics calculation test passed!")
+    test_osm_pipeline_transformation()
+    print("[OK] OpenStreetMap Overpass ingestion pipeline test passed!")
+    test_fastapi_phase2_5_endpoints()
+    print("[OK] Phase 2.5 coverage & analytics endpoints test passed!")
+
     print("=" * 60)
-    print("ALL TESTS PASSED! Phase 2 backend gateway is fully operational.")
+    print("ALL TESTS PASSED! Phase 2.5 data foundation & truthful analytics fully verified.")
     print("=" * 60)
 
 if __name__ == "__main__":
     main()
+

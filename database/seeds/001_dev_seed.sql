@@ -1,9 +1,10 @@
 -- ==============================================================================
--- NAGARDRISHTI — DEVELOPMENT SEED DATA (PHASE 1)
--- Scope: Madhya Pradesh & Gwalior Reference City
--- DISCLAIMER: THIS FILE CONTAINS CLEARLY LABELED DEVELOPMENT/TEST SEED DATA.
--- IT DOES NOT REPRESENT FORMAL GOVERNMENT TELEMETRY OR VERIFIED PRODUCTION AUDIT DATA.
--- ALL UUIDs ARE VALID RFC-4122 COMPLIANT HEXADECIMAL IDENTIFIERS.
+-- [DEPRECATED / SUPERSEDED IN PHASE 2.5]
+-- NAGARDRISHTI — DEVELOPMENT SEED DATA (PHASE 1 LEGACY)
+-- NOTE: Please use the updated Phase 2.5 modular scripts:
+--   1. database/seeds/001_master_reference.sql (Master Catalog & Layers)
+--   2. database/seeds/003_real_gwalior_open_data.sql (Real Gwalior OpenStreetMap Data)
+--   3. database/seeds/002_development_fixtures.sql (Dev Test Fixtures)
 -- ==============================================================================
 
 -- 1. Administrative Units: State of Madhya Pradesh & Districts

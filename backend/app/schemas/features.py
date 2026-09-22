@@ -41,5 +41,6 @@ class GISFeatureDetailResponse(BaseModel):
     properties: Dict[str, Any]
     observed_at: Optional[datetime] = None
     source_updated_at: Optional[datetime] = None
+    provenance_type: str = "official_verified"
     source_attribution_en: Optional[str] = None
     source_attribution_hi: Optional[str] = None

@@ -227,9 +227,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ sectors, departments }
                               <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
                                 {layer.geometry_type}
                               </span>
-                              <span className="text-[9px] text-slate-400 flex items-center gap-0.5">
-                                <Clock className="w-2.5 h-2.5 text-emerald-400" />
-                                {layer.source_type}
+                              <span className="text-[9px] text-cyan-400 font-mono flex items-center gap-0.5">
+                                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                                {layer.source_type === 'internal_postgis' ? 'Verified PostGIS' : layer.source_type}
                               </span>
                             </div>
                           </div>
@@ -237,7 +237,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ sectors, departments }
 
                         <button
                           onClick={() => setSelectedLayerForInfo(layer)}
-                          title="View Layer Metadata"
+                          title="View Layer Metadata & Provenance"
                           className="text-slate-400 hover:text-cyan-400 p-1"
                         >
                           <Info className="w-3.5 h-3.5" />

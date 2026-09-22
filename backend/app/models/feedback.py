@@ -48,6 +48,7 @@ class CitizenReport(Base):
     ai_metadata = Column(JSONB, default=dict, nullable=False)
     department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
     assigned_officer_name = Column(String(150), nullable=True)
+    provenance_type = Column(String(50), default="citizen_submitted", nullable=False)
     resolution_summary = Column(String, nullable=True)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)

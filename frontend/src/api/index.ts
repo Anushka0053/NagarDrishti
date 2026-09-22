@@ -9,6 +9,8 @@ export * from './sources';
 export * from './feedback';
 export * from './intelligence';
 export * from './ai';
+export * from './coverage';
+export * from './analytics';
 export * from './hooks';
 
 // Unified civicApi backward-compatibility facade
@@ -20,6 +22,8 @@ import { sourcesApi } from './sources';
 import { feedbackApi } from './feedback';
 import { intelligenceApi } from './intelligence';
 import { aiApi } from './ai';
+import { coverageApi } from './coverage';
+import { analyticsApi } from './analytics';
 
 export const civicApi = {
   ...citiesApi,
@@ -30,4 +34,7 @@ export const civicApi = {
   ...feedbackApi,
   ...intelligenceApi,
   ...aiApi,
+  ...coverageApi,
+  ...analyticsApi,
 };
+

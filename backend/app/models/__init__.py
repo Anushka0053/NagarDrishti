@@ -1,5 +1,5 @@
 from app.models.admin import AdminUnit, City, Ward, Locality
-from app.models.layers import Sector, Department, DataSource, GISLayer
+from app.models.layers import Sector, Department, DataSource, GISLayer, DataCoverage
 from app.models.features import GISFeature
 from app.models.feedback import (
     UserProfile,
@@ -30,6 +30,7 @@ __all__ = [
     "Department",
     "DataSource",
     "GISLayer",
+    "DataCoverage",
     "GISFeature",
     "UserProfile",
     "CitizenReport",

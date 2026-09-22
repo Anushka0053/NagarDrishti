@@ -19,6 +19,7 @@ class IssueClusterResponse(BaseModel):
     unresolved_count: int
     composite_risk_score: float
     cluster_status: str
+    provenance_type: str = "internal_derived"
     first_reported_at: datetime
     last_reported_at: datetime
 

@@ -32,6 +32,7 @@ class SpatialService:
                 ds.attribution_text_en,
                 ds.attribution_text_hi,
                 ds.health_status,
+                f.provenance_type,
                 f.source_updated_at
             FROM gis_features f
             JOIN gis_layers l ON f.layer_id = l.id
@@ -61,6 +62,7 @@ class SpatialService:
                 category=r.category,
                 distance_meters=round(r.distance_meters, 2) if r.distance_meters is not None else 0.0,
                 properties=r.properties or {},
+                provenance_type=r.provenance_type or "official_verified",
                 source_attribution_en=r.attribution_text_en,
                 source_attribution_hi=r.attribution_text_hi,
                 source_health=r.health_status,
@@ -115,9 +117,13 @@ class SpatialService:
                                 'name_en', f.name_en,
                                 'name_hi', f.name_hi,
                                 'category', f.category,
+                                'subcategory', f.subcategory,
                                 'layer_id', f.layer_id,
                                 'city_id', f.city_id,
                                 'ward_id', f.ward_id,
+                                'provenance_type', f.provenance_type,
+                                'observed_at', f.observed_at,
+                                'source_updated_at', f.source_updated_at,
                                 'attributes', f.properties
                             )
                         )

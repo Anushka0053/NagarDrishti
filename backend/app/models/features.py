@@ -24,6 +24,7 @@ class GISFeature(Base):
     properties = Column(JSONB, default=dict, nullable=False)
     observed_at = Column(DateTime(timezone=True), nullable=True)
     source_updated_at = Column(DateTime(timezone=True), nullable=True)
+    provenance_type = Column(String(50), default="official_verified", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)

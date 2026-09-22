@@ -100,6 +100,7 @@ class GISLayer(Base):
     filter_config = Column(JSONB, default=dict)
     freshness_sla_days = Column(Integer, default=30)
     is_active = Column(Boolean, default=True, nullable=False)
+    default_provenance = Column(String(50), default="official_verified", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
 
@@ -107,3 +108,30 @@ class GISLayer(Base):
     department = relationship("Department", back_populates="layers")
     source = relationship("DataSource", back_populates="layers")
     features = relationship("GISFeature", back_populates="layer", cascade="all, delete-orphan")
+
+
+class DataCoverage(Base):
+    __tablename__ = "data_coverage"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    city_id = Column(UUID(as_uuid=True), ForeignKey("cities.id", ondelete="CASCADE"), nullable=False)
+    layer_id = Column(UUID(as_uuid=True), ForeignKey("gis_layers.id", ondelete="CASCADE"), nullable=True)
+    sector_id = Column(UUID(as_uuid=True), ForeignKey("sectors.id", ondelete="SET NULL"), nullable=True)
+    source_id = Column(UUID(as_uuid=True), ForeignKey("data_sources.id", ondelete="SET NULL"), nullable=True)
+    coverage_status = Column(String(50), default="unavailable", nullable=False)
+    feature_count = Column(Integer, default=0, nullable=False)
+    geographic_coverage = Column(String(100), default="Municipal Area")
+    temporal_coverage = Column(String(100), nullable=True)
+    authority_level = Column(String(50), nullable=True)
+    provenance_type = Column(String(50), default="official_verified", nullable=False)
+    last_source_update = Column(DateTime(timezone=True), nullable=True)
+    last_successful_sync = Column(DateTime(timezone=True), nullable=True)
+    completeness_notes = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
+
+    layer = relationship("GISLayer")
+    city = relationship("City")
+    sector = relationship("Sector")
+    source = relationship("DataSource")
+

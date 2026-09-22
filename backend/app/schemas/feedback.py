@@ -59,6 +59,7 @@ class CitizenReportResponse(BaseModel):
     location_address: Optional[str] = None
     severity_input: str
     status: str
+    provenance_type: str = "citizen_submitted"
     is_public: bool
     corroboration_count: int
     created_at: datetime

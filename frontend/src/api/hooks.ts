@@ -6,6 +6,8 @@ import { searchApi } from './search';
 import { sourcesApi } from './sources';
 import { feedbackApi } from './feedback';
 import { intelligenceApi } from './intelligence';
+import { coverageApi } from './coverage';
+import { analyticsApi } from './analytics';
 
 // ==========================================
 // CITIES & WARDS
@@ -78,6 +80,55 @@ export function useDataSources() {
   });
 }
 
+export function useSourcesStatus() {
+  return useQuery({
+    queryKey: ['sources-status'],
+    queryFn: () => sourcesApi.getSourcesStatus(),
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+// ==========================================
+// DATA COVERAGE MATRIX
+// ==========================================
+export function useCoverageMatrix(filters?: { city_id?: string; sector_id?: string }) {
+  return useQuery({
+    queryKey: ['coverage-matrix', filters],
+    queryFn: () => coverageApi.getCoverageMatrix(filters),
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useCityCoverageSummary(cityId?: string | null) {
+  return useQuery({
+    queryKey: ['city-coverage-summary', cityId],
+    queryFn: () => (cityId ? coverageApi.getCityCoverageSummary(cityId) : Promise.resolve(null)),
+    enabled: !!cityId,
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+// ==========================================
+// LIVE CITY & WARD ANALYTICS
+// ==========================================
+export function useCityAnalytics(cityId?: string | null) {
+  return useQuery({
+    queryKey: ['city-analytics', cityId],
+    queryFn: () => (cityId ? analyticsApi.getCityAnalytics(cityId) : Promise.resolve(null)),
+    enabled: !!cityId,
+    staleTime: 1000 * 30, // 30s
+  });
+}
+
+export function useWardAnalytics(wardId?: string | null) {
+  return useQuery({
+    queryKey: ['ward-analytics', wardId],
+    queryFn: () => (wardId ? analyticsApi.getWardAnalytics(wardId) : Promise.resolve(null)),
+    enabled: !!wardId,
+    staleTime: 1000 * 30,
+  });
+}
+
 // ==========================================
 // UNIVERSAL SEARCH
 // ==========================================
@@ -117,6 +168,8 @@ export function useSubmitReport() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['public-reports'] });
       queryClient.invalidateQueries({ queryKey: ['clusters'] });
+      queryClient.invalidateQueries({ queryKey: ['city-analytics'] });
     },
   });
 }
+

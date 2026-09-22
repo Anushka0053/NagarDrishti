@@ -44,8 +44,24 @@ def list_reports(
     status_filter: Optional[str] = Query(None, alias="status"),
     db: Session = Depends(get_db)
 ):
-    """List public, accepted citizen reports."""
-    query = text("""
+    """List public, accepted citizen reports with optional city/ward/category filtering."""
+    extra_filters = ""
+    params = {}
+
+    if city_id:
+        extra_filters += " AND r.city_id = :city_id"
+        params["city_id"] = city_id
+    if ward_id:
+        extra_filters += " AND r.ward_id = :ward_id"
+        params["ward_id"] = ward_id
+    if category:
+        extra_filters += " AND r.category = :category"
+        params["category"] = category
+    if status_filter:
+        extra_filters += " AND r.status = :status"
+        params["status"] = status_filter
+
+    query = text(f"""
         SELECT 
             r.id,
             r.report_number,
@@ -57,17 +73,18 @@ def list_reports(
             r.description,
             r.severity_input,
             r.status,
+            r.provenance_type,
             r.corroboration_count,
             ST_X(r.location_geometry) AS longitude,
             ST_Y(r.location_geometry) AS latitude,
             r.location_address,
             r.created_at
         FROM citizen_reports r
-        WHERE r.is_public = TRUE AND r.status != 'rejected_spam'
+        WHERE r.is_public = TRUE AND r.status != 'rejected_spam' {extra_filters}
         ORDER BY r.created_at DESC
         LIMIT 50;
     """)
-    rows = db.execute(query).fetchall()
+    rows = db.execute(query, params).fetchall()
     return [
         {
             "id": str(r.id),
@@ -80,6 +97,7 @@ def list_reports(
             "description": r.description,
             "severity_input": r.severity_input,
             "status": r.status,
+            "provenance_type": r.provenance_type or "citizen_submitted",
             "corroboration_count": r.corroboration_count,
             "latitude": r.latitude,
             "longitude": r.longitude,
