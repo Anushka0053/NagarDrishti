@@ -11,6 +11,6 @@ export const layersApi = {
 
   getDepartments: () => apiClient<Department[]>('/layers/departments'),
 
-  getLayerFeaturesGeoJSON: (layerId: string, options?: { city_id?: string; ward_id?: string; bbox?: string }) =>
-    apiClient<any>(`/layers/${layerId}/features`, { params: options }),
+  getLayerFeaturesGeoJSON: (layerId: string, options?: { city_id?: string; ward_id?: string; bbox?: string; offset?: number }, signal?: AbortSignal) =>
+    apiClient<any>(`/layers/${layerId}/features`, { params: options, signal }),
 };

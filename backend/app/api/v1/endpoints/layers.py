@@ -1,7 +1,10 @@
 from typing import List, Optional
+from math import isfinite
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+from app.models.features import GISFeature
 from app.core.database import get_db
 from app.models.layers import GISLayer, Sector, Department
 from app.schemas.layers import GISLayerResponse, SectorResponse, DepartmentResponse
@@ -29,6 +32,13 @@ def get_layers(
     # Filter by city if specified
     if city_id:
         layers = [l for l in layers if not l.city_ids or city_id in l.city_ids]
+    counts = db.query(GISFeature.layer_id, func.count(GISFeature.id)).filter(GISFeature.is_active.is_(True), GISFeature.provenance_type != 'development_fixture')
+    if city_id:
+        counts = counts.filter(GISFeature.city_id == city_id)
+    by_layer = dict(counts.group_by(GISFeature.layer_id).all())
+    for layer in layers:
+        layer.feature_count = by_layer.get(layer.id, 0)
+        layer.coverage_status = 'partial' if layer.feature_count else 'unavailable'
         
     return layers
 
@@ -60,6 +70,8 @@ def get_layer_features(
     city_id: Optional[UUID] = Query(None, description="Filter by city"),
     ward_id: Optional[UUID] = Query(None, description="Filter by ward"),
     bbox: Optional[str] = Query(None, description="Bounding box comma-separated: min_lng,min_lat,max_lng,max_lat"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=5000),
     db: Session = Depends(get_db)
 ):
     """Retrieve layer features as GeoJSON FeatureCollection."""
@@ -67,7 +79,12 @@ def get_layer_features(
     if bbox:
         try:
             bbox_coords = [float(c.strip()) for c in bbox.split(",")]
-        except Exception:
+            if len(bbox_coords) != 4 or not all(isfinite(c) for c in bbox_coords):
+                raise ValueError("Expected four finite coordinates")
+            west, south, east, north = bbox_coords
+            if not (-180 <= west <= east <= 180 and -90 <= south <= north <= 90):
+                raise ValueError("Invalid coordinate bounds")
+        except ValueError:
             raise HTTPException(status_code=400, detail="Invalid bbox format. Expected: min_lng,min_lat,max_lng,max_lat")
 
-    return SpatialService.get_features_geojson(db, layer_id=layer_id, city_id=city_id, ward_id=ward_id, bbox=bbox_coords)
+    return SpatialService.get_features_geojson(db, layer_id=layer_id, city_id=city_id, ward_id=ward_id, bbox=bbox_coords, offset=offset, limit=limit)

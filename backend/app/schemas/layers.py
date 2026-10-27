@@ -55,6 +55,8 @@ class DataSourceResponse(BaseModel):
 
 
 class GISLayerResponse(BaseModel):
+    feature_count: int = 0
+    coverage_status: str = "unavailable"
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID

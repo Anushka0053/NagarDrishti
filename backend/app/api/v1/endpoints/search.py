@@ -32,8 +32,6 @@ def universal_search(
                 lng = float(parts[1])
                 # Ensure plausible range for MP / India (lat ~20-30, lng ~70-85)
                 # If reversed (lng first), handle cleanly
-                if lat > 50 and lng < 40:
-                    lat, lng = lng, lat
 
                 results.append({
                     "id": f"coord-{lat}-{lng}",
@@ -52,6 +50,9 @@ def universal_search(
                 })
             except ValueError:
                 pass
+
+    if results:
+        return {"query": query_str, "count": len(results), "results": results}
 
     # 2. Search Cities (name_en, name_hi, slug)
     city_query = text("""
@@ -134,35 +135,51 @@ def universal_search(
     feature_query = text(f"""
         SELECT 
             f.id, f.layer_id, f.city_id, f.ward_id, f.external_id, f.name_en, f.name_hi,
-            f.category, f.subcategory, l.name_en AS layer_name_en, c.name_en AS city_name_en,
+            f.category, f.subcategory, f.properties, f.provenance_type, f.source_updated_at,
+            ds.attribution_text_en, l.name_en AS layer_name_en, c.name_en AS city_name_en,
             ST_AsGeoJSON(f.geometry)::json AS geometry,
             ST_X(ST_Centroid(f.geometry)) AS center_lng,
             ST_Y(ST_Centroid(f.geometry)) AS center_lat
         FROM gis_features f
         JOIN gis_layers l ON f.layer_id = l.id
+        LEFT JOIN data_sources ds ON ds.id = f.source_id
         LEFT JOIN cities c ON f.city_id = c.id
-        WHERE f.is_active = TRUE {feature_filter}
-          AND (f.name_en ILIKE :pattern OR f.name_hi ILIKE :pattern OR f.category ILIKE :pattern OR f.external_id ILIKE :pattern)
+        WHERE f.is_active = TRUE AND f.provenance_type != 'development_fixture' {feature_filter}
+          AND (f.name_en ILIKE :pattern OR f.name_hi ILIKE :pattern OR f.category ILIKE :pattern OR f.external_id ILIKE :pattern
+               OR f.properties->'raw_tags'->>'alt_name' ILIKE :pattern
+               OR f.properties->'raw_tags'->>'short_name' ILIKE :pattern
+               OR word_similarity(:term, coalesce(f.name_en,'')) > 0.4)
         ORDER BY f.name_en ASC
         LIMIT :limit;
     """)
+    feature_params['term'] = query_str
     matching_features = db.execute(feature_query, feature_params).fetchall()
     for f in matching_features:
         results.append({
             "id": str(f.id),
-            "title": f"{f.name_en or f.category} ({f.name_hi or f.category})",
+            "title": f.name_en or f.name_hi or ("Unnamed mapped road" if f.category == "road" else f.category),
+            "properties": {**(f.properties or {}), "external_id": f.external_id},
+            "provenance_type": f.provenance_type,
+            "source_attribution_en": f.attribution_text_en,
+            "last_updated": f.source_updated_at.isoformat() if f.source_updated_at else None,
             "subtitle": f"{f.layer_name_en} • {f.city_name_en or 'Madhya Pradesh'}",
             "type": "feature",
             "category": f.category,
             "city_id": str(f.city_id) if f.city_id else None,
             "ward_id": str(f.ward_id) if f.ward_id else None,
-            "coordinates": [f.center_lng, f.center_lat] if f.center_lng and f.center_lat else None,
+            "coordinates": [f.center_lng, f.center_lat] if f.center_lng is not None and f.center_lat is not None else None,
             "bbox": None,
             "geometry": f.geometry
         })
 
+    if not results and city_id:
+        from app.models.admin import City
+        from app.adapters.geocoding import search_places
+        city = db.get(City, city_id)
+        if city:
+            results = search_places(query_str, city.name_en, (city.settings or {}).get('osm_bbox'))
     return {
         "query": query_str,
-        "count": len(results),
+        "count": len(results[:limit]),
         "results": results[:limit]
     }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   ShieldCheck, 
@@ -29,6 +29,7 @@ export const CoverageModal: React.FC<CoverageModalProps> = ({ isOpen, onClose, i
   const [selectedCityId, setSelectedCityId] = useState<string | undefined>(initialCityId);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
+  useEffect(() => setSelectedCityId(initialCityId), [initialCityId]);
   const activeCityId = selectedCityId || (cities && cities.length > 0 ? cities[0].id : undefined);
   const { data: summary, isLoading } = useCityCoverageSummary(activeCityId);
   const { data: sourcesStatus } = useSourcesStatus();
@@ -39,7 +40,7 @@ export const CoverageModal: React.FC<CoverageModalProps> = ({ isOpen, onClose, i
     switch (status) {
       case 'available':
         return {
-          label: 'Available (Live GIS)',
+          label: 'Available',
           badgeClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
           icon: CheckCircle2
         };
@@ -57,7 +58,7 @@ export const CoverageModal: React.FC<CoverageModalProps> = ({ isOpen, onClose, i
         };
       case 'integration_pending':
         return {
-          label: 'MOU / Integration Pending',
+          label: 'Integration Pending',
           badgeClass: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
           icon: Clock
         };
@@ -281,3 +282,4 @@ export const CoverageModal: React.FC<CoverageModalProps> = ({ isOpen, onClose, i
     </div>
   );
 };
+

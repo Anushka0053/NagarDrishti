@@ -45,6 +45,9 @@ export async function apiClient<T>(endpoint: string, options: ApiClientOptions =
   }
 
   const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (customConfig.signal?.aborted) controller.abort();
+  customConfig.signal?.addEventListener('abort', abort, { once: true });
   const id = setTimeout(() => controller.abort(), timeoutMs);
 
   // Ready for optional JWT bearer token integration without polluting components
@@ -97,5 +100,8 @@ export async function apiClient<T>(endpoint: string, options: ApiClientOptions =
       throw error;
     }
     throw new ApiError(0, error.message || 'Network connection failed');
+  } finally {
+    clearTimeout(id);
+    customConfig.signal?.removeEventListener('abort', abort);
   }
 }

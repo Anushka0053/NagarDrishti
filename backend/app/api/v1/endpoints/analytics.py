@@ -3,7 +3,7 @@ from uuid import UUID
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case
+from sqlalchemy import func, case, cast, String
 from app.core.database import get_db
 from app.models.admin import City, Ward
 from app.models.feedback import CitizenReport
@@ -19,6 +19,8 @@ from app.schemas.analytics import (
 
 router = APIRouter()
 
+OPEN_STATUSES = ["submitted", "triaged", "assigned", "in_progress", "under_review", "verified", "needs_review", "community_corroborated", "ai_processed"]
+
 
 @router.get("/city/{city_id}", response_model=CityAnalyticsResponse, tags=["Analytics"])
 def get_city_analytics(city_id: UUID, db: Session = Depends(get_db)):
@@ -32,12 +34,13 @@ def get_city_analytics(city_id: UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"City '{city_id}' not found.")
 
     # 1. Citizen reports metrics
+    status_str = cast(CitizenReport.status, String)
     report_stats = db.query(
         func.count(CitizenReport.id).label("total"),
-        func.count(case((CitizenReport.status.in_(["submitted", "triaged", "assigned", "in_progress", "under_review"]), 1))).label("open"),
-        func.count(case((CitizenReport.status == "resolved", 1))).label("resolved"),
-        func.count(case((CitizenReport.status == "in_progress", 1))).label("in_progress"),
-    ).filter(CitizenReport.city_id == city_id).first()
+        func.count(case((status_str.in_(OPEN_STATUSES), 1))).label("open"),
+        func.count(case((status_str == "resolved", 1))).label("resolved"),
+        func.count(case((status_str == "in_progress", 1))).label("in_progress"),
+    ).filter(CitizenReport.city_id == city_id, CitizenReport.is_public.is_(True), cast(CitizenReport.provenance_type, String) != 'development_fixture').first()
 
     total_reports = report_stats.total if report_stats else 0
     open_reports = report_stats.open if report_stats else 0
@@ -49,7 +52,7 @@ def get_city_analytics(city_id: UUID, db: Session = Depends(get_db)):
     # 2. Verified GIS features count
     features_count = db.query(func.count(GISFeature.id)).filter(
         GISFeature.city_id == city_id,
-        GISFeature.is_active == True
+        GISFeature.is_active == True, GISFeature.provenance_type != 'development_fixture'
     ).scalar() or 0
 
     # 3. Active clusters count
@@ -62,9 +65,9 @@ def get_city_analytics(city_id: UUID, db: Session = Depends(get_db)):
     cat_rows = db.query(
         CitizenReport.category,
         func.count(CitizenReport.id).label("count"),
-        func.count(case((CitizenReport.status.in_(["submitted", "triaged", "assigned", "in_progress", "under_review"]), 1))).label("open"),
-        func.count(case((CitizenReport.status == "resolved", 1))).label("resolved")
-    ).filter(CitizenReport.city_id == city_id).group_by(CitizenReport.category).all()
+        func.count(case((status_str.in_(OPEN_STATUSES), 1))).label("open"),
+        func.count(case((status_str == "resolved", 1))).label("resolved")
+    ).filter(CitizenReport.city_id == city_id, CitizenReport.is_public.is_(True), cast(CitizenReport.provenance_type, String) != 'development_fixture').group_by(CitizenReport.category).all()
 
     category_breakdown = [
         CategoryBreakdownItem(
@@ -83,8 +86,8 @@ def get_city_analytics(city_id: UUID, db: Session = Depends(get_db)):
         Ward.name_en.label("ward_name_en"),
         Ward.name_hi.label("ward_name_hi"),
         func.count(CitizenReport.id).label("count"),
-        func.count(case((CitizenReport.status.in_(["submitted", "triaged", "assigned", "in_progress", "under_review"]), 1))).label("open"),
-        func.count(case((CitizenReport.status == "resolved", 1))).label("resolved")
+        func.count(case((status_str.in_(OPEN_STATUSES), 1))).label("open"),
+        func.count(case((status_str == "resolved", 1))).label("resolved")
     ).outerjoin(CitizenReport, CitizenReport.ward_id == Ward.id)\
      .filter(Ward.city_id == city_id, Ward.is_active == True)\
      .group_by(Ward.id, Ward.ward_number, Ward.name_en, Ward.name_hi)\
@@ -137,12 +140,13 @@ def get_ward_analytics(ward_id: UUID, db: Session = Depends(get_db)):
     if not ward:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Ward '{ward_id}' not found.")
 
+    status_str = cast(CitizenReport.status, String)
     report_stats = db.query(
         func.count(CitizenReport.id).label("total"),
-        func.count(case((CitizenReport.status.in_(["submitted", "triaged", "assigned", "in_progress", "under_review"]), 1))).label("open"),
-        func.count(case((CitizenReport.status == "resolved", 1))).label("resolved"),
-        func.count(case((CitizenReport.status == "in_progress", 1))).label("in_progress"),
-    ).filter(CitizenReport.ward_id == ward_id).first()
+        func.count(case((status_str.in_(OPEN_STATUSES), 1))).label("open"),
+        func.count(case((status_str == "resolved", 1))).label("resolved"),
+        func.count(case((status_str == "in_progress", 1))).label("in_progress"),
+    ).filter(CitizenReport.ward_id == ward_id, CitizenReport.is_public.is_(True), cast(CitizenReport.provenance_type, String) != 'development_fixture').first()
 
     total_reports = report_stats.total if report_stats else 0
     open_reports = report_stats.open if report_stats else 0
@@ -153,15 +157,15 @@ def get_ward_analytics(ward_id: UUID, db: Session = Depends(get_db)):
 
     features_count = db.query(func.count(GISFeature.id)).filter(
         GISFeature.ward_id == ward_id,
-        GISFeature.is_active == True
+        GISFeature.is_active == True, GISFeature.provenance_type != 'development_fixture'
     ).scalar() or 0
 
     cat_rows = db.query(
         CitizenReport.category,
         func.count(CitizenReport.id).label("count"),
-        func.count(case((CitizenReport.status.in_(["submitted", "triaged", "assigned", "in_progress", "under_review"]), 1))).label("open"),
-        func.count(case((CitizenReport.status == "resolved", 1))).label("resolved")
-    ).filter(CitizenReport.ward_id == ward_id).group_by(CitizenReport.category).all()
+        func.count(case((status_str.in_(OPEN_STATUSES), 1))).label("open"),
+        func.count(case((status_str == "resolved", 1))).label("resolved")
+    ).filter(CitizenReport.ward_id == ward_id, CitizenReport.is_public.is_(True), cast(CitizenReport.provenance_type, String) != 'development_fixture').group_by(CitizenReport.category).all()
 
     category_breakdown = [
         CategoryBreakdownItem(
@@ -187,3 +191,5 @@ def get_ward_analytics(ward_id: UUID, db: Session = Depends(get_db)):
         category_breakdown=category_breakdown,
         features_count=features_count
     )
+
+

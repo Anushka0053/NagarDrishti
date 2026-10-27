@@ -3,6 +3,8 @@ import { Header } from '../components/layout/Header';
 import { LeftSidebar } from '../components/layout/LeftSidebar';
 import { Inspector } from '../components/layout/Inspector';
 import { AnalyticsDrawer } from '../components/layout/AnalyticsDrawer';
+import { AnalysisDrawer } from '../components/gis/AnalysisDrawer';
+import { DatasetUploadModal } from '../components/gis/DatasetUploadModal';
 import { MapContainer } from '../components/map/MapContainer';
 import { FeedbackModal } from '../components/feedback/FeedbackModal';
 import { useCities, useLayers, useSectors, useDepartments } from '../api/hooks';
@@ -14,13 +16,13 @@ export const DashboardPage: React.FC = () => {
   const { setLayers } = useLayerStore();
 
   const { data: cities = [] } = useCities();
-  const { data: layers = [] } = useLayers({ city_id: activeCity?.id });
+  const { data: layers } = useLayers({ city_id: activeCity?.id });
   const { data: sectors = [] } = useSectors();
   const { data: departments = [] } = useDepartments();
 
   // Sync fetched layers into layerStore
   useEffect(() => {
-    if (layers && layers.length > 0) {
+    if (layers) {
       setLayers(layers);
     }
   }, [layers, setLayers]);
@@ -31,10 +33,13 @@ export const DashboardPage: React.FC = () => {
       <div className="flex-1 flex overflow-hidden relative">
         <LeftSidebar sectors={sectors} departments={departments} />
         <MapContainer />
+        <AnalysisDrawer />
         <Inspector />
       </div>
       <AnalyticsDrawer />
-      <FeedbackModal />
+      <DatasetUploadModal />
+
     </div>
   );
 };
+

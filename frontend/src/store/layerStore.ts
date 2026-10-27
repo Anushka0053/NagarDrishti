@@ -27,40 +27,13 @@ interface LayerState {
 
 export const useLayerStore = create<LayerState>((set) => ({
   layers: [],
-  // Start with Roads & Hospitals layers enabled by default
-  activeLayerIds: new Set([
-    'fa000000-0000-0000-0000-000000000001', // Major Roads
-    'fa000000-0000-0000-0000-000000000002', // Hospitals
-    'fa000000-0000-0000-0000-000000000005', // Issue Clusters
-  ]),
+  activeLayerIds: new Set<string>(),
   layerOpacity: {},
-  selectedFeature: {
-    feature_id: 'f0000000-0000-0000-0000-000000000001',
-    layer_id: 'fa000000-0000-0000-0000-000000000001',
-    layer_name_en: 'Major Urban Roads & Arterials',
-    layer_name_hi: 'प्रमुख शहरी एवं मुख्य सड़कें',
-    name_en: 'University Road (City Center to Jiwaji)',
-    name_hi: 'विश्वविद्यालय मार्ग (सिटी सेंटर से जीवाजी)',
-    category: 'arterial_road',
-    distance_meters: 0,
-    properties: {
-      surface: 'bituminous',
-      lanes: 4,
-      width_meters: 24,
-      maintenance_dept: 'MP PWD',
-      condition: 'good',
-    },
-    source_attribution_en: 'Directorate of Urban Administration & Development, Govt of MP (GARUD GIS)',
-    source_attribution_hi: 'स्रोत: नगरीय प्रशासन एवं विकास संचालनालय, म.प्र. शासन (गरुड़)',
-    source_health: 'healthy',
-    last_updated: '2026-08-15T10:00:00Z',
-    city_name: 'Gwalior',
-    ward_name: 'Ward 52 - City Center',
-  },
+  selectedFeature: null,
   selectedSectorId: null,
   selectedDepartmentId: null,
   layerSearchQuery: '',
-  showWardBoundaries: true,
+  showWardBoundaries: false,
 
   setLayers: (layers) => set({ layers }),
   toggleLayer: (layerId) =>
@@ -102,3 +75,4 @@ export const useLayerStore = create<LayerState>((set) => ({
   setShowWardBoundaries: (show) => set({ showWardBoundaries: show }),
   toggleWardBoundaries: () => set((state) => ({ showWardBoundaries: !state.showWardBoundaries })),
 }));
+

@@ -48,7 +48,7 @@ def test_spatial_resolve_location_schema():
     assert data["latitude"] == 26.2183
     assert data["longitude"] == 78.1828
     assert "state" in data
-    assert data["state_code"] == "MP"
+    assert data["state_code"] is None  # No containment evidence in the mocked database.
     app.dependency_overrides.clear()
 
 

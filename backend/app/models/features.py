@@ -1,9 +1,20 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, text
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, text, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from geoalchemy2 import Geometry
 from app.core.database import Base
+
+DATA_PROVENANCE_ENUM = SQLEnum(
+    "official_verified",
+    "community_open",
+    "citizen_submitted",
+    "internal_derived",
+    "development_fixture",
+    name="data_provenance_type",
+    create_type=False,
+    native_enum=True
+)
 
 
 class GISFeature(Base):
@@ -24,7 +35,7 @@ class GISFeature(Base):
     properties = Column(JSONB, default=dict, nullable=False)
     observed_at = Column(DateTime(timezone=True), nullable=True)
     source_updated_at = Column(DateTime(timezone=True), nullable=True)
-    provenance_type = Column(String(50), default="official_verified", nullable=False)
+    provenance_type = Column(DATA_PROVENANCE_ENUM, default="official_verified", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)

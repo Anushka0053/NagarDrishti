@@ -58,7 +58,7 @@ def list_reports(
         extra_filters += " AND r.category = :category"
         params["category"] = category
     if status_filter:
-        extra_filters += " AND r.status = :status"
+        extra_filters += " AND r.status::text = :status"
         params["status"] = status_filter
 
     query = text(f"""
@@ -80,7 +80,7 @@ def list_reports(
             r.location_address,
             r.created_at
         FROM citizen_reports r
-        WHERE r.is_public = TRUE AND r.status != 'rejected_spam' {extra_filters}
+        WHERE r.is_public = TRUE AND r.status::text != 'rejected_spam' {extra_filters}
         ORDER BY r.created_at DESC
         LIMIT 50;
     """)

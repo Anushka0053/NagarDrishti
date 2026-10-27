@@ -9,6 +9,12 @@ from app.schemas.layers import DataSourceResponse
 router = APIRouter()
 
 
+@router.get('/bhuvan/capabilities', tags=['Data Sources'])
+async def bhuvan_capabilities():
+    from app.adapters.public_data import BhuvanThematicAdapter
+    return await BhuvanThematicAdapter().capabilities()
+
+
 @router.get("", response_model=List[DataSourceResponse], tags=["Data Sources"])
 def get_data_sources(db: Session = Depends(get_db)):
     """Retrieve all authoritative and registered data sources in the MP matrix."""
@@ -26,21 +32,23 @@ def get_data_sources_status(db: Session = Depends(get_db)) -> List[Dict[str, Any
 
     for src in sources:
         key = src.source_key
-        status_val = "healthy"
-        is_configured = True
-        notes = src.notes or ""
+        status_val = "integration_pending"
+        is_configured = False
+        notes = "Registered reference; no working dataset integration verified."
 
         if key == "sarvam_ai":
+            status_val = "configured" if settings.SARVAM_API_KEY else "credential_required"
+            is_configured = bool(settings.SARVAM_API_KEY)
+            notes = "Phase 4 only; configuration does not verify API connectivity."
             if not settings.SARVAM_API_KEY or settings.SARVAM_API_KEY.startswith("your_"):
                 status_val = "credential_required"
                 is_configured = False
                 notes = "SARVAM_API_KEY environment variable not configured."
-        elif key == "bhuvan_isro":
-            if not settings.BHUVAN_API_KEY or settings.BHUVAN_API_KEY.startswith("your_"):
-                status_val = "credential_required"
-                is_configured = False
-                notes = "BHUVAN_API_KEY required for direct ISRO satellite & WMS layers."
+        elif "bhuvan" in key:
+            status_val = "metadata_only"
+            notes = "Documented public thematic WMS/WMTS; layer capability discovery available. Token-based APIs have separate access requirements. No blanket API-key requirement."
         elif key == "data_gov_in":
+            notes = "Resource-specific integration pending: select and validate an API-enabled resource. A key alone does not provide datasets."
             if not settings.DATA_GOV_IN_API_KEY or settings.DATA_GOV_IN_API_KEY.startswith("your_"):
                 status_val = "credential_required"
                 is_configured = False
@@ -49,10 +57,10 @@ def get_data_sources_status(db: Session = Depends(get_db)) -> List[Dict[str, Any
             status_val = "integration_pending"
             is_configured = False
             notes = "Direct state enterprise API gateway integration pending MOU / credential provisioning."
-        elif key == "openstreetmap_mp":
-            status_val = "healthy"
+        elif key in ("openstreetmap_mp", "osm_community"):
+            status_val = "periodic"
             is_configured = True
-            notes = "Public Overpass API operational (ODbL 1.0 license)."
+            notes = "Periodic Overpass ingestion; community-open, partial coverage. This is not a live feed. Inspect ingestion runs for success/failure."
 
         statuses.append({
             "source_id": str(src.id),
@@ -70,4 +78,3 @@ def get_data_sources_status(db: Session = Depends(get_db)) -> List[Dict[str, Any
         })
 
     return statuses
-
