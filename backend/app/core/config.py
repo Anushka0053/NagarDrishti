@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     MP_ESERVICE_API_URL: str = "https://www.services.mp.gov.in/eservice/openAPI"
     GARUD_PORTAL_URL: str = "https://www.urbangis.mp.gov.in/"
     ROUTING_API_URL: str = "https://router.project-osrm.org"
+    GEOCODING_URL: Optional[str] = None  # Explicitly approved Nominatim-compatible /search endpoint
+    GEOCODING_USER_AGENT: str = "NagarDrishti/1.0"
 
 
 settings = Settings()

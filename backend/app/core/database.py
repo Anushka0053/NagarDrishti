@@ -27,6 +27,7 @@ try:
         pool_size=settings.DATABASE_POOL_SIZE,
         max_overflow=settings.DATABASE_MAX_OVERFLOW,
         pool_pre_ping=True
+        ,connect_args={"prepare_threshold": None} if db_url.startswith("postgresql+psycopg://") else {}
     )
 except Exception as e:
     # Safe offline / unit test fallback engine

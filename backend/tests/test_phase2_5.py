@@ -53,7 +53,7 @@ def test_zero_reports_analytics_calculation():
 def test_osm_pipeline_transformation():
     """Test OSM pipeline converts raw Overpass JSON to standard GIS features with community_open provenance."""
     pipeline = OSMOverpassPipeline()
-    query = pipeline.build_query("health")
+    query = pipeline.build_query("health", [26.14, 78.10, 26.30, 78.26])
     assert "amenity" in query
     assert "hospital" in query
 

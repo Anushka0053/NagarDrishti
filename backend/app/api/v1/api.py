@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     admin,
     coverage,
     analytics,
+    admin_datasets,
 )
 
 api_router = APIRouter()
@@ -32,4 +33,4 @@ api_router.include_router(feedback.router, prefix="/feedback", tags=["Citizen Fe
 api_router.include_router(intelligence.router, prefix="/intelligence", tags=["Civic Intelligence"])
 api_router.include_router(ai.router, prefix="/ai", tags=["Sarvam AI"])
 api_router.include_router(admin.router, prefix="/admin", tags=["Admin & ETL"])
-
+api_router.include_router(admin_datasets.router, prefix="/admin/datasets", tags=["Dataset Administration"])

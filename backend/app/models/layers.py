@@ -1,8 +1,45 @@
 import uuid
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, text
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, text, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+
+DATA_PROVENANCE_ENUM = SQLEnum(
+    "official_verified",
+    "community_open",
+    "citizen_submitted",
+    "internal_derived",
+    "development_fixture",
+    name="data_provenance_type",
+    create_type=False,
+    native_enum=True
+)
+
+COVERAGE_STATUS_ENUM = SQLEnum(
+    "available",
+    "partial",
+    "metadata_only",
+    "integration_pending",
+    "credential_required",
+    "not_publicly_available",
+    "unavailable",
+    "development_only",
+    name="coverage_status_type",
+    create_type=False,
+    native_enum=True
+)
+
+SOURCE_AUTHORITY_ENUM = SQLEnum(
+    "verified_state_government",
+    "verified_central_government",
+    "verified_municipal",
+    "conditional_official",
+    "community_open",
+    "internal_platform",
+    name="source_authority_level",
+    create_type=False,
+    native_enum=True
+)
 
 
 class Sector(Base):
@@ -50,7 +87,7 @@ class DataSource(Base):
     name_en = Column(String(200), nullable=False)
     name_hi = Column(String(200), nullable=False)
     provider = Column(String(200), nullable=False)
-    authority_level = Column(String(50), default="conditional_official", nullable=False)
+    authority_level = Column(SOURCE_AUTHORITY_ENUM, default="conditional_official", nullable=False)
     homepage_url = Column(String(255), nullable=True)
     api_docs_url = Column(String(255), nullable=True)
     service_endpoint_url = Column(String(255), nullable=True)
@@ -84,8 +121,8 @@ class GISLayer(Base):
     sector_id = Column(UUID(as_uuid=True), ForeignKey("sectors.id", ondelete="SET NULL"), nullable=True)
     department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
     source_id = Column(UUID(as_uuid=True), ForeignKey("data_sources.id", ondelete="SET NULL"), nullable=True)
-    geometry_type = Column(String(50), nullable=False)
-    source_type = Column(String(50), default="internal_postgis", nullable=False)
+    geometry_type = Column(SQLEnum("POINT", "MULTIPOINT", "LINESTRING", "MULTILINESTRING", "POLYGON", "MULTIPOLYGON", "GEOMETRYCOLLECTION", name="gis_geometry_type"), nullable=False)
+    source_type = Column(SQLEnum("internal_postgis", "geojson", "vector_tiles", "wms", "wmts", "external_api", "uploaded_dataset", name="layer_source_type"), default="internal_postgis", nullable=False)
     external_layer_name = Column(String(150), nullable=True)
     service_url_template = Column(String(500), nullable=True)
     city_ids = Column(ARRAY(UUID(as_uuid=True)), default=list)
@@ -100,7 +137,7 @@ class GISLayer(Base):
     filter_config = Column(JSONB, default=dict)
     freshness_sla_days = Column(Integer, default=30)
     is_active = Column(Boolean, default=True, nullable=False)
-    default_provenance = Column(String(50), default="official_verified", nullable=False)
+    default_provenance = Column(DATA_PROVENANCE_ENUM, default="official_verified", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
 
@@ -118,12 +155,12 @@ class DataCoverage(Base):
     layer_id = Column(UUID(as_uuid=True), ForeignKey("gis_layers.id", ondelete="CASCADE"), nullable=True)
     sector_id = Column(UUID(as_uuid=True), ForeignKey("sectors.id", ondelete="SET NULL"), nullable=True)
     source_id = Column(UUID(as_uuid=True), ForeignKey("data_sources.id", ondelete="SET NULL"), nullable=True)
-    coverage_status = Column(String(50), default="unavailable", nullable=False)
+    coverage_status = Column(COVERAGE_STATUS_ENUM, default="unavailable", nullable=False)
     feature_count = Column(Integer, default=0, nullable=False)
     geographic_coverage = Column(String(100), default="Municipal Area")
     temporal_coverage = Column(String(100), nullable=True)
-    authority_level = Column(String(50), nullable=True)
-    provenance_type = Column(String(50), default="official_verified", nullable=False)
+    authority_level = Column(SOURCE_AUTHORITY_ENUM, nullable=True)
+    provenance_type = Column(DATA_PROVENANCE_ENUM, default="official_verified", nullable=False)
     last_source_update = Column(DateTime(timezone=True), nullable=True)
     last_successful_sync = Column(DateTime(timezone=True), nullable=True)
     completeness_notes = Column(String, nullable=True)
@@ -134,4 +171,3 @@ class DataCoverage(Base):
     city = relationship("City")
     sector = relationship("Sector")
     source = relationship("DataSource")
-

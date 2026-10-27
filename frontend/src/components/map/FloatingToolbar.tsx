@@ -10,10 +10,13 @@ import {
   Route, 
   Ruler, 
   SplitSquareVertical, 
-  Trash2, 
+  Sparkles,
+  UploadCloud,
+  RotateCcw, 
   Maximize2 
 } from 'lucide-react';
-import { useMapStore, GISTool } from '../../store/mapStore';
+import { useMapStore } from '../../store/mapStore';
+import { GISToolType } from '../../types';
 
 interface FloatingToolbarProps {
   onZoomIn: () => void;
@@ -29,15 +32,20 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   onToggleFullscreen,
 }) => {
   const { t } = useTranslation();
-  const { activeTool, setActiveTool } = useMapStore();
+  const { 
+    activeTool, 
+    setActiveTool, 
+    setUploadModalOpen, 
+    clearAnalysis 
+  } = useMapStore();
 
-  const handleToolClick = (tool: GISTool) => {
+  const handleToolClick = (tool: GISToolType) => {
     setActiveTool(activeTool === tool ? 'idle' : tool);
   };
 
   return (
     <div className="absolute top-4 left-4 z-10 flex flex-col gap-1.5 select-none">
-      {/* Navigation Group */}
+      {/* 1. Zoom & Location Group */}
       <div className="bg-[#0B132B]/90 border border-[#2E3D60] rounded-lg p-1 flex flex-col gap-1 shadow-lg backdrop-blur-md">
         <button
           onClick={onZoomIn}
@@ -63,11 +71,11 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
         </button>
       </div>
 
-      {/* GIS Analysis Tools Group */}
+      {/* 2. Primary Explore & Identify */}
       <div className="bg-[#0B132B]/90 border border-[#2E3D60] rounded-lg p-1 flex flex-col gap-1 shadow-lg backdrop-blur-md">
         <button
           onClick={() => handleToolClick('identify')}
-          title={t('toolbar.identify')}
+          title="Identify Feature Attributes"
           className={`p-2 rounded transition-all ${
             activeTool === 'identify'
               ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30 font-bold'
@@ -76,10 +84,13 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
         >
           <MousePointerClick className="w-4 h-4" />
         </button>
+      </div>
 
+      {/* 3. Advanced Spatial Analysis Tools */}
+      <div className="bg-[#0B132B]/90 border border-[#2E3D60] rounded-lg p-1 flex flex-col gap-1 shadow-lg backdrop-blur-md">
         <button
           onClick={() => handleToolClick('buffer')}
-          title={t('toolbar.buffer')}
+          title="Buffer Analysis (PostGIS ST_Buffer)"
           className={`p-2 rounded transition-all ${
             activeTool === 'buffer'
               ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
@@ -91,7 +102,7 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
 
         <button
           onClick={() => handleToolClick('proximity')}
-          title={t('toolbar.proximity')}
+          title="Proximity Search (ST_DWithin)"
           className={`p-2 rounded transition-all ${
             activeTool === 'proximity'
               ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
@@ -103,7 +114,7 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
 
         <button
           onClick={() => handleToolClick('route')}
-          title={t('toolbar.route')}
+          title="OSRM Routing & Corridor Risk"
           className={`p-2 rounded transition-all ${
             activeTool === 'route'
               ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
@@ -114,20 +125,8 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
         </button>
 
         <button
-          onClick={() => handleToolClick('measure')}
-          title={t('toolbar.measure')}
-          className={`p-2 rounded transition-all ${
-            activeTool === 'measure'
-              ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
-              : 'text-slate-200 hover:text-cyan-400 hover:bg-[#1C2541]'
-          }`}
-        >
-          <Ruler className="w-4 h-4" />
-        </button>
-
-        <button
           onClick={() => handleToolClick('compare')}
-          title={t('toolbar.compare')}
+          title="Ward / Area Comparison"
           className={`p-2 rounded transition-all ${
             activeTool === 'compare'
               ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
@@ -137,14 +136,49 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
           <SplitSquareVertical className="w-4 h-4" />
         </button>
 
+        <button
+          onClick={() => handleToolClick('suitability')}
+          title="Deterministic Spatial Suitability Analysis"
+          className={`p-2 rounded transition-all ${
+            activeTool === 'suitability'
+              ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
+              : 'text-slate-200 hover:text-cyan-400 hover:bg-[#1C2541]'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* 4. Measurement & Data Tools */}
+      <div className="bg-[#0B132B]/90 border border-[#2E3D60] rounded-lg p-1 flex flex-col gap-1 shadow-lg backdrop-blur-md">
+        <button
+          onClick={() => handleToolClick('measure_distance')}
+          title="Measure Geodesic Distance"
+          className={`p-2 rounded transition-all ${
+            activeTool === 'measure_distance'
+              ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
+              : 'text-slate-200 hover:text-cyan-400 hover:bg-[#1C2541]'
+          }`}
+        >
+          <Ruler className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={() => setUploadModalOpen(true)}
+          title="Upload Vector Dataset (GeoJSON, Shapefile, CSV)"
+          className="p-2 text-slate-200 hover:text-cyan-400 hover:bg-[#1C2541] rounded transition-colors"
+        >
+          <UploadCloud className="w-4 h-4" />
+        </button>
+
         <div className="h-px bg-[#2E3D60] mx-1" />
 
         <button
-          onClick={() => setActiveTool('idle')}
-          title={t('toolbar.clear')}
+          onClick={clearAnalysis}
+          title="Clear Temporary Analysis Layers"
           className="p-2 text-slate-400 hover:text-rose-400 hover:bg-[#1C2541] rounded transition-colors"
         >
-          <Trash2 className="w-4 h-4" />
+          <RotateCcw className="w-4 h-4" />
         </button>
 
         <button

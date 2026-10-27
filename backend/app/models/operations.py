@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Integer, BigInteger, Boolean, DateTime, ForeignKey, text
+from sqlalchemy import Column, String, Integer, BigInteger, Boolean, DateTime, ForeignKey, text, Enum
 from sqlalchemy.dialects.postgresql import UUID, JSONB, INET
 from app.core.database import Base
 
@@ -34,7 +34,7 @@ class IngestionRun(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_id = Column(UUID(as_uuid=True), ForeignKey("data_sources.id", ondelete="CASCADE"), nullable=False)
     run_type = Column(String(50), default="scheduled_sync")
-    status = Column(String(50), default="pending", nullable=False)
+    status = Column(Enum("pending", "running", "completed", "partial_failure", "failed", name="ingestion_status"), default="pending", nullable=False)
     started_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     records_fetched = Column(Integer, default=0)
