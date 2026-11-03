@@ -43,3 +43,40 @@ class AITranslationResponse(BaseModel):
     source_language: str
     target_language: str
     cached: bool = False
+
+
+class AITextToSpeechRequest(BaseModel):
+    text: str
+    language_code: Optional[str] = "hi-IN"
+    speaker: Optional[str] = "meera"
+
+
+class AITextToSpeechResponse(BaseModel):
+    audio_base64: str
+    format: str = "wav"
+    configured: bool = False
+    message: Optional[str] = None
+
+
+class AITriageRequest(BaseModel):
+    text: str
+    category_hint: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
+class AITriageResponse(BaseModel):
+    predicted_category: str
+    confidence: float
+    urgency: str
+    sentiment: str
+    detected_language: str
+    assigned_department_name: str
+    is_ai_prediction: bool = True
+    is_insufficient_information: Optional[bool] = False
+    triage_summary: str
+    executive_summary_en: Optional[str] = None
+    executive_summary_hi: Optional[str] = None
+    extracted_hazard: Optional[str] = None
+    recommended_action: Optional[str] = None
+    target_sla_hours: Optional[int] = 48

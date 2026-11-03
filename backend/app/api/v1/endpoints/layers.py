@@ -71,7 +71,7 @@ def get_layer_features(
     ward_id: Optional[UUID] = Query(None, description="Filter by ward"),
     bbox: Optional[str] = Query(None, description="Bounding box comma-separated: min_lng,min_lat,max_lng,max_lat"),
     offset: int = Query(0, ge=0),
-    limit: int = Query(1000, ge=1, le=5000),
+    limit: int = Query(3000, ge=1, le=10000),
     db: Session = Depends(get_db)
 ):
     """Retrieve layer features as GeoJSON FeatureCollection."""

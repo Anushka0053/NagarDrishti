@@ -296,9 +296,13 @@ class OSMOverpassPipeline(BaseIngestionPipeline):
             # Only set Hindi name if genuine source tag exists; do NOT copy English name to imply a translation
             name_hi = tags.get("name:hi") or None
 
-            # 1. Road LineString Ways
-            if getattr(self, "category", None) == "roads" or (el_type == "way" and "highway" in tags and "geometry" in el):
-                if el_type != "way" or tags.get("highway") not in ROAD_CLASSES or tags.get("area") == "yes" or "building" in tags:
+            # 1. Road LineString Ways (ONLY when ingesting roads category or explicit road way)
+            is_road_category = getattr(self, "category", None) == "roads"
+            if is_road_category or (el_type == "way" and "highway" in tags and "geometry" in el and not tags.get("amenity") and not tags.get("building")):
+                if el_type != "way":
+                    continue
+                highway_class = tags.get("highway")
+                if highway_class not in ROAD_CLASSES or tags.get("area") == "yes" or "building" in tags or "boundary" in tags or "parking" in tags or "leisure" in tags:
                     continue
                 geom_points = el.get("geometry", [])
                 if len(geom_points) >= 2:

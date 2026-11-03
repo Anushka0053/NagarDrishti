@@ -19,6 +19,12 @@
     "sources": "डेटा स्रोत",
     "layers": "लेयर सूची"
   },
+  "header": {
+    "report_issue": "शिकायत दर्ज करें",
+    "voice_search": "ध्वनि खोज",
+    "admin_portal": "शासकीय पोर्टल",
+    "reports_stream": "रिपोर्ट्स केंद्र"
+  },
   "sidebar": {
     "layers_tab": "लेयर्स",
     "sectors_tab": "क्षेत्र",
@@ -26,6 +32,7 @@
     "basemap_tab": "बेस मैप",
     "legend_tab": "संकेतिका",
     "active_layers": "सक्रिय लेयर्स",
+    "total": "कुल लेयर्स",
     "search_layers": "जीआईएस लेयर्स खोजें...",
     "no_layers_found": "कोई लेयर नहीं मिली",
     "opacity": "पारदर्शिता",

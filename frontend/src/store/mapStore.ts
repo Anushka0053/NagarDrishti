@@ -6,7 +6,7 @@ import {
   MeasureResult, CompareResult, SuitabilityResult
 } from '../types';
 
-export type BasemapStyle = 'dark' | 'light' | 'osm' | 'satellite' | 'terrain';
+export type BasemapStyle = 'dark' | 'light' | 'osm' | 'satellite' | 'satellite_labels' | 'terrain';
 
 interface UserLocation {
   latitude: number;

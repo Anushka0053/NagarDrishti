@@ -699,7 +699,7 @@ class SpatialService:
         city_id: Optional[UUID] = None,
         ward_id: Optional[UUID] = None,
         bbox: Optional[List[float]] = None,
-        limit: int = 1000,
+        limit: int = 3000,
         offset: int = 0
     ) -> Dict[str, Any]:
         """
@@ -710,7 +710,7 @@ class SpatialService:
         where_clauses = ["f.layer_id = :layer_id", "f.is_active = TRUE", "f.provenance_type != 'development_fixture'"]
 
         if city_id:
-            where_clauses.append("f.city_id = :city_id")
+            where_clauses.append("(f.city_id = :city_id OR f.city_id IS NULL)")
             params["city_id"] = str(city_id)
 
         if ward_id:

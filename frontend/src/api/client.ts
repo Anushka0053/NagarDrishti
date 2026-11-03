@@ -54,10 +54,14 @@ export async function apiClient<T>(endpoint: string, options: ApiClientOptions =
   const token = typeof window !== 'undefined' ? localStorage.getItem('nd_auth_token') : null;
 
   const defaultHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
     Accept: 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
+
+  // Only set application/json if body is not FormData
+  if (!(customConfig.body instanceof FormData)) {
+    defaultHeaders['Content-Type'] = 'application/json';
+  }
 
   try {
     const response = await fetch(url, {

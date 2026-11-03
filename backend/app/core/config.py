@@ -1,11 +1,15 @@
+from pathlib import Path
 from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import AnyHttpUrl, field_validator
 
+_BASE_DIR = Path(__file__).resolve().parents[2]
+_ENV_FILES = [str(_BASE_DIR / ".env"), str(_BASE_DIR / "backend" / ".env"), ".env", "backend/.env"]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ENV_FILES,
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore"
@@ -20,7 +24,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # CORS
-    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
+    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:5174,http://localhost:8000"
 
     @property
     def cors_origins(self) -> List[str]:

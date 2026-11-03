@@ -1,10 +1,18 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.core.database import get_db
-from app.schemas.intelligence import EntityIntelligenceBundle, IssueClusterResponse
+from app.schemas.intelligence import (
+    EntityIntelligenceBundle,
+    IssueClusterResponse,
+    AreaReportPreviewRequest,
+    AreaReportGenerateRequest,
+    AreaReportUpdateRequest,
+    AreaIntelligenceReportResponse,
+    IndividualReportAIAnalysisResponse
+)
 from app.services.intelligence_service import IntelligenceService
 from app.models.intelligence import IssueCluster
 
@@ -63,7 +71,74 @@ def get_active_issue_clusters(city_id: Optional[UUID] = Query(None), db: Session
     ]
 
 
+@router.post("/area-reports/preview", tags=["Civic Intelligence"])
+@router.post("/area-report/preview", tags=["Civic Intelligence"])
+def preview_area_report_data(req: AreaReportPreviewRequest, db: Session = Depends(get_db)):
+    """Fetch matching actual citizen reports for a proposed area synthesis before generating."""
+    return IntelligenceService.preview_area_reports(db, req)
+
+
+@router.post("/area-reports/generate", response_model=AreaIntelligenceReportResponse, tags=["Civic Intelligence"])
+@router.post("/area-report/generate", response_model=AreaIntelligenceReportResponse, tags=["Civic Intelligence"])
+def generate_area_report(req: AreaReportGenerateRequest, db: Session = Depends(get_db)):
+    """
+    Synthesize matching reports in an area into a grounded, comprehensive AI Area Intelligence Report
+    using Sarvam AI. Persists to ai_reports table.
+    """
+    return IntelligenceService.generate_consolidated_area_report(db, req)
+
+
+@router.get("/area-reports", tags=["Civic Intelligence"])
+@router.get("/area-report", tags=["Civic Intelligence"])
+def list_area_reports(city_id: Optional[UUID] = Query(None), limit: int = Query(20, ge=1, le=50), db: Session = Depends(get_db)):
+    """List historical and active AI Area Intelligence Reports."""
+    return IntelligenceService.list_area_reports(db, city_id=city_id, limit=limit)
+
+
+@router.get("/area-reports/{report_id}", response_model=AreaIntelligenceReportResponse, tags=["Civic Intelligence"])
+@router.get("/area-report/{report_id}", response_model=AreaIntelligenceReportResponse, tags=["Civic Intelligence"])
+def get_area_report(report_id: UUID, db: Session = Depends(get_db)):
+    """Retrieve full details of an AI Area Intelligence Report."""
+    rep = IntelligenceService.get_area_report_by_id(db, report_id)
+    if not rep:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Area report '{report_id}' not found.")
+    return rep
+
+
+@router.patch("/area-reports/{report_id}", response_model=AreaIntelligenceReportResponse, tags=["Civic Intelligence"])
+@router.patch("/area-report/{report_id}", response_model=AreaIntelligenceReportResponse, tags=["Civic Intelligence"])
+def update_area_report(report_id: UUID, req: AreaReportUpdateRequest, db: Session = Depends(get_db)):
+    """Allow authorized municipal officers to edit findings or approve the report."""
+    try:
+        return IntelligenceService.update_area_report(db, report_id, req)
+    except LookupError as le:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(le))
+
+
+@router.post("/reports/{report_id}/analyze", response_model=IndividualReportAIAnalysisResponse, tags=["Civic Intelligence"])
+def analyze_individual_report(report_id: UUID, db: Session = Depends(get_db)):
+    """
+    Execute individual AI triage, category & department verification, urgency rating,
+    duplicate scanning, and recommendations for a single citizen issue.
+    """
+    try:
+        return IntelligenceService.analyze_individual_report(db, report_id)
+    except LookupError as le:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(le))
+
+
 @router.get("/{entity_type}/{entity_id}", response_model=EntityIntelligenceBundle, tags=["Civic Intelligence"])
-def get_intelligence_overview(entity_type: str, entity_id: UUID, db: Session = Depends(get_db)):
-    """Retrieve comprehensive, explainable evidence bundle for a ward, city, or facility."""
-    return IntelligenceService.get_entity_intelligence(db, entity_type, entity_id)
+def get_intelligence_overview(
+    entity_type: str,
+    entity_id: UUID,
+    category: Optional[str] = Query(None),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve comprehensive, explainable evidence bundle for a facility, road, ward, or city.
+    Performs live spatial queries for citizen reports located at or near the entity.
+    """
+    return IntelligenceService.get_entity_intelligence(
+        db, entity_type, entity_id, category=category, status=status_filter
+    )

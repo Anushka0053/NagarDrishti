@@ -3,6 +3,8 @@ import { initReactI18next } from 'react-i18next';
 import en from './locales/en.json';
 import hi from './locales/hi.json';
 
+const savedLanguage = typeof window !== 'undefined' ? localStorage.getItem('nd_language') : null;
+
 i18n
   .use(initReactI18next)
   .init({
@@ -10,7 +12,7 @@ i18n
       en: { translation: en },
       hi: { translation: hi },
     },
-    lng: 'hi', // Default to Hindi as per MP civic requirements
+    lng: savedLanguage || 'en', // Default to English
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false,

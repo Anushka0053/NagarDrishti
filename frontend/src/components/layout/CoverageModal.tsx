@@ -109,7 +109,7 @@ export const CoverageModal: React.FC<CoverageModalProps> = ({ isOpen, onClose, i
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-100 flex items-center gap-2">
                 <span>NagarDrishti Data Coverage & Provenance Matrix</span>
                 <span className="text-[10px] bg-cyan-950/80 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded font-mono">
-                  Phase 2.5 Truth Audit
+                  GIS Provenance Audit
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
