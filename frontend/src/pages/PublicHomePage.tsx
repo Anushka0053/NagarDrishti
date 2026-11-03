@@ -26,7 +26,7 @@ export const PublicHomePage: React.FC = () => {
   }, [layers, setLayers]);
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#0B132B]">
+    <div className="h-screen w-full flex flex-col overflow-hidden bg-[#0B132B]">
       <PublicHeader cities={cities} />
       <div className="flex-1 flex overflow-hidden relative">
         <LeftSidebar sectors={sectors} departments={departments} />

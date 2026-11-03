@@ -19,6 +19,7 @@ import { PublicHeader } from '../components/layout/PublicHeader';
 import { useCities } from '../api/hooks';
 import { feedbackApi } from '../api/feedback';
 import { aiApi } from '../api/ai';
+import { validateCivicDescription } from '../utils/civicValidation';
 
 const ISSUE_CATEGORIES = [
   { id: 'road_pothole', label_en: 'Road Damage / Potholes', label_hi: 'सड़क क्षति एवं गड्ढे' },
@@ -146,6 +147,13 @@ export const PublicReportPage: React.FC = () => {
       return;
     }
 
+    // Client-side strict validation against gibberish and spam
+    const clientVal = validateCivicDescription(description);
+    if (!clientVal.isValid) {
+      setErrorMessage(clientVal.error || 'Please enter a valid description of the civic problem.');
+      return;
+    }
+
     if (category === 'other' && !customTitle.trim()) {
       setErrorMessage(i18n.language === 'hi' ? 'कृपया अन्य श्रेणी के लिए समस्या का शीर्षक दर्ज करें' : 'Please provide a custom issue title for the "Other" category.');
       return;
@@ -196,6 +204,15 @@ export const PublicReportPage: React.FC = () => {
 
       if (res?.report_number) reportNum = res.report_number;
     } catch (err: any) {
+      const respData = err?.response?.data;
+      if (err?.response?.status === 422 || respData?.detail?.error === 'validation_failed') {
+        const valMsg = respData?.detail?.message 
+          ? `${respData.detail.message} ${respData.detail.suggestion || ''}`
+          : (typeof respData?.detail === 'string' ? respData.detail : 'The description contains insufficient civic details or meaningless characters.');
+        setErrorMessage(valMsg);
+        setIsSubmitting(false);
+        return;
+      }
       console.warn('[Submitted in offline-resilient mode]', err);
     }
 
@@ -242,10 +259,10 @@ export const PublicReportPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#0B132B] text-slate-100 flex flex-col font-sans select-none overflow-y-auto scrollbar-thin">
+    <div className="h-screen w-full bg-[#0B132B] text-slate-100 flex flex-col font-sans select-none overflow-y-auto">
       <PublicHeader cities={cities} />
 
-      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-8">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-8 pb-24">
         <a href="/" className="inline-flex items-center gap-2 text-xs font-semibold text-cyan-400 hover:text-cyan-300 mb-6">
           <ArrowLeft className="w-4 h-4" />
           <span>{i18n.language === 'hi' ? 'मानचित्र पर वापस जाएं' : 'Back to Public Map'}</span>

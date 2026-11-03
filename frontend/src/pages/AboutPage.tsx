@@ -19,10 +19,10 @@ export const AboutPage: React.FC = () => {
   const { data: cities = [] } = useCities();
 
   return (
-    <div className="min-h-screen w-full bg-[#0B132B] text-slate-100 flex flex-col font-sans select-none overflow-y-auto scrollbar-thin">
+    <div className="h-screen w-full bg-[#0B132B] text-slate-100 flex flex-col font-sans select-none overflow-y-auto">
       <PublicHeader cities={cities} />
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-10 space-y-8">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-10 space-y-8 pb-24">
         {/* Hero Section */}
         <div className="text-center space-y-3">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-cyan-500 to-teal-400 flex items-center justify-center shadow-xl shadow-cyan-500/20 mx-auto">

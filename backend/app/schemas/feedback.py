@@ -15,6 +15,7 @@ class CitizenReportCreate(BaseModel):
     latitude: float
     longitude: float
     location_address: Optional[str] = None
+    facility_name: Optional[str] = None
     severity_input: Optional[str] = "medium"
     input_language: Optional[str] = "hi"
     is_anonymous: Optional[bool] = False
@@ -58,6 +59,7 @@ class CitizenReportResponse(BaseModel):
     latitude: float
     longitude: float
     location_address: Optional[str] = None
+    facility_name: Optional[str] = None
     severity_input: str
     status: str
     provenance_type: str = "citizen_submitted"

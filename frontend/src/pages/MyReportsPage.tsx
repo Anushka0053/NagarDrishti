@@ -15,7 +15,8 @@ import {
   UserCheck,
   ShieldCheck,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 import { PublicHeader } from '../components/layout/PublicHeader';
 import { useCities } from '../api/hooks';
@@ -100,6 +101,20 @@ export const MyReportsPage: React.FC = () => {
     fetchReportDetails(lookupId.trim());
   };
 
+  const handleClearAllReports = async () => {
+    if (window.confirm(i18n.language === 'hi' ? 'क्या आप सभी सहेजी गई स्थानीय रिपोर्ट हटाना चाहते हैं?' : 'Are you sure you want to clear all your saved reports from this device?')) {
+      try {
+        localStorage.removeItem('my_citizen_reports');
+        await feedbackApi.clearTestData();
+      } catch (e) {
+        // Safe ignore
+      }
+      setLocalReports([]);
+      setSelectedReport(null);
+      setSearchedReport(null);
+    }
+  };
+
   const handleCorroborate = async (reportId: string) => {
     try {
       const res = await feedbackApi.corroborateReport(reportId, 'confirm_issue');
@@ -129,10 +144,10 @@ export const MyReportsPage: React.FC = () => {
   const currentStep = selectedReport ? getStatusStepIndex(selectedReport.status) : 1;
 
   return (
-    <div className="min-h-screen w-full bg-[#0B132B] text-slate-100 flex flex-col font-sans select-none overflow-y-auto scrollbar-thin">
+    <div className="h-screen w-full bg-[#0B132B] text-slate-100 flex flex-col font-sans select-none overflow-y-auto">
       <PublicHeader cities={cities} />
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-8 space-y-6">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-8 space-y-6 pb-24">
         <div>
           <h1 className="text-2xl font-black text-white flex items-center gap-2">
             <FileText className="w-6 h-6 text-cyan-400" />
@@ -181,7 +196,19 @@ export const MyReportsPage: React.FC = () => {
           <div className="space-y-3">
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
               <span>{i18n.language === 'hi' ? 'आपकी हालिया शिकायतें' : 'Your Recent Submissions'}</span>
-              <span className="text-[10px] text-cyan-400 font-mono">({localReports.length})</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-cyan-400 font-mono">({localReports.length})</span>
+                {localReports.length > 0 && (
+                  <button
+                    onClick={handleClearAllReports}
+                    className="text-[10px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 hover:underline"
+                    title="Clear saved local reports"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>{i18n.language === 'hi' ? 'डेटा हटाएं' : 'Clear All'}</span>
+                  </button>
+                )}
+              </div>
             </h2>
 
             {localReports.length === 0 ? (
@@ -348,6 +375,74 @@ export const MyReportsPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Grounded Facts vs AI Inferences vs Recommendations */}
+                {((selectedReport as any).ai_metadata?.individual_intelligence || (selectedReport as any).individual_intelligence) && (
+                  (() => {
+                    const intel = (selectedReport as any).ai_metadata?.individual_intelligence || (selectedReport as any).individual_intelligence;
+                    return (
+                      <div className="p-4 bg-[#131B33] border border-[#2E3D60] rounded-xl space-y-3">
+                        <div className="flex items-center gap-1.5 text-purple-400 font-bold text-xs uppercase tracking-wider">
+                          <Sparkles className="w-4 h-4" />
+                          <span>Detailed Civic Intelligence Breakdown</span>
+                        </div>
+
+                        {/* Affected Infrastructure */}
+                        {intel.affected_infrastructure && (
+                          <div className="text-xs">
+                            <span className="text-slate-400 font-mono text-[10px] block uppercase">Affected Infrastructure:</span>
+                            <span className="text-slate-200 font-semibold">
+                              {i18n.language === 'hi' ? (intel.affected_infrastructure_hi || intel.affected_infrastructure) : intel.affected_infrastructure}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Citizen Impact */}
+                        {intel.reported_impact && (
+                          <div className="text-xs">
+                            <span className="text-slate-400 font-mono text-[10px] block uppercase">Citizen-Reported Impact:</span>
+                            <span className="text-slate-200">
+                              {i18n.language === 'hi' ? (intel.reported_impact_hi || intel.reported_impact) : intel.reported_impact}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Facts vs Interpretations */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                          <div className="p-2.5 bg-[#0B132B] rounded-lg border border-[#2E3D60] space-y-1">
+                            <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block">Reported Facts:</span>
+                            <ul className="text-[11px] text-slate-300 space-y-1 list-disc list-inside">
+                              {(intel.reported_facts || []).map((f: string, i: number) => (
+                                <li key={i}>{f}</li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div className="p-2.5 bg-[#0B132B] rounded-lg border border-[#2E3D60] space-y-1">
+                            <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider block">AI Inferences:</span>
+                            <ul className="text-[11px] text-slate-300 space-y-1 list-disc list-inside">
+                              {(intel.ai_interpretations || []).map((inf: string, i: number) => (
+                                <li key={i}>{inf}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+
+                        {/* Missing Information Notice */}
+                        {intel.missing_information && intel.missing_information.length > 0 && intel.missing_information[0] !== 'All core grievance parameters supplied.' && (
+                          <div className="p-2 bg-amber-950/20 border border-amber-500/30 rounded-lg text-[11px] text-amber-200">
+                            <span className="font-bold text-[10px] text-amber-400 uppercase block">Missing / Additional Details:</span>
+                            <ul className="list-disc list-inside mt-0.5 space-y-0.5">
+                              {intel.missing_information.map((m: string, i: number) => (
+                                <li key={i}>{m}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
+                )}
 
                 {/* Official Resolution Summary / Inspection Notes */}
                 {selectedReport.resolution_summary ? (

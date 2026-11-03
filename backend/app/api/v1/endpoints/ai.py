@@ -66,17 +66,24 @@ def triage_civic_report(request: AITriageRequest):
     """
     triage = ai_service.sarvam.triage_civic_text(request.text, category_hint=request.category_hint)
     return AITriageResponse(
-        predicted_category=triage["predicted_category"],
-        confidence=triage["confidence"],
-        urgency=triage["urgency"],
-        sentiment=triage["sentiment"],
-        detected_language=triage["detected_language"],
-        assigned_department_name=triage["assigned_department_name"],
+        predicted_category=triage.get("predicted_category", "other"),
+        confidence=triage.get("confidence", 0.95),
+        urgency=triage.get("urgency", "medium"),
+        sentiment=triage.get("sentiment", "neutral"),
+        detected_language=triage.get("detected_language", triage.get("original_language", "en")),
+        assigned_department_name=triage.get("assigned_department_name", "Municipal Citizen Grievance Redressal Cell"),
+        assigned_department_name_hi=triage.get("assigned_department_name_hi"),
         is_ai_prediction=True,
-        triage_summary=triage["triage_summary"],
+        triage_summary=triage.get("triage_summary", triage.get("executive_brief_en", "")),
         executive_summary_en=triage.get("executive_summary_en"),
         executive_summary_hi=triage.get("executive_summary_hi"),
         extracted_hazard=triage.get("extracted_hazard"),
+        extracted_hazard_hi=triage.get("extracted_hazard_hi"),
         recommended_action=triage.get("recommended_action"),
-        target_sla_hours=triage.get("target_sla_hours", 48)
+        recommended_action_hi=triage.get("recommended_action_hi"),
+        quality_status=triage.get("quality_status", "Needs Verification"),
+        quality_status_hi=triage.get("quality_status_hi", "स्थल सत्यापन आवश्यक"),
+        target_sla_hours=triage.get("target_sla_hours", 48),
+        description_en=triage.get("description_en"),
+        description_hi=triage.get("description_hi")
     )

@@ -130,4 +130,9 @@ export const feedbackApi = {
       method: 'POST',
       body: JSON.stringify({ corroboration_type: corroborationType, comment }),
     }),
+
+  clearTestData: () =>
+    apiClient<{ status: string; message: string; deleted_count: number }>('/feedback/clear-test-data', {
+      method: 'DELETE',
+    }),
 };

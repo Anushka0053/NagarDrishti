@@ -4,6 +4,7 @@ from datetime import datetime
 import random
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from app.adapters.sarvam import SarvamAIAdapter
 from app.models.feedback import CitizenReport, ReportMedia, ReportStatusHistory, ReportCorroboration
 from app.models.intelligence import IssueCluster
@@ -19,16 +20,17 @@ class FeedbackService:
         Submits citizen report, performs automated AI triage, spatial duplicate detection,
         and dynamically assigns or forms issue clusters in PostGIS.
         """
-        # 1. Generate standard report number
+        # 1. Strict Input Validation before processing
+        val_res = SarvamAIAdapter.validate_civic_text(report_in.description)
+        if not val_res["is_valid"]:
+            raise ValueError(f"{val_res['reason']} {val_res['suggestion']}")
+
+        # 2. Generate standard report number
         seq = random.randint(1000, 9999)
         year = datetime.utcnow().year
         report_number = f"ND-MP-{year}-{seq}"
 
         point_geom = f"SRID=4326;POINT({report_in.longitude} {report_in.latitude})"
-
-        # 2. Automated AI Triage via SarvamAdapter
-        sarvam = SarvamAIAdapter()
-        triage = sarvam.triage_civic_text(report_in.description, category_hint=report_in.category)
 
         # 3. Spatial duplicate search using PostGIS ST_DWithin (within 200m)
         nearby_reports = []
@@ -76,17 +78,63 @@ class FeedbackService:
             # Fallback when running in mock test mode
             pass
 
-        # 4. Construct AI Metadata Bundle
+        # 4. Automated AI Triage & Grounded Individual Issue Intelligence
+        sarvam = SarvamAIAdapter()
+        intel = sarvam.generate_individual_intelligence(
+            description=report_in.description,
+            category=report_in.category,
+            location_address=report_in.location_address,
+            media_paths=report_in.media_paths,
+            latitude=report_in.latitude,
+            longitude=report_in.longitude,
+            nearby_reports=nearby_reports
+        )
+        triage = intel["triage"]
+
+        # 5. Construct Comprehensive Grounded AI Metadata Bundle
+        facility_name = getattr(report_in, "facility_name", None)
+        if not facility_name and report_in.location_address:
+            parts = [p.strip() for p in report_in.location_address.split(",")]
+            if parts and len(parts) > 1 and not parts[0].lower().startswith("ward") and not parts[0].lower().startswith("near"):
+                facility_name = parts[0]
+
         ai_metadata = {
+            "facility_name": facility_name,
             "predicted_category": triage["predicted_category"],
+            "subcategory": triage.get("subcategory"),
             "confidence": triage["confidence"],
             "urgency": triage["urgency"],
             "sentiment": triage["sentiment"],
-            "assigned_department": triage["assigned_department_name"],
+            "assigned_department": intel["responsible_department"],
+            "assigned_department_hi": intel["responsible_department_hi"],
+            "assigned_department_name": intel["responsible_department"],
+            "assigned_department_name_hi": intel["responsible_department_hi"],
             "is_ai_prediction": True,
+            "is_insufficient_information": triage.get("is_insufficient_information", False),
             "nearby_duplicate_count": len(nearby_reports),
             "nearby_reports": nearby_reports,
-            "triage_summary": triage["triage_summary"]
+            "triage_summary": triage["triage_summary"],
+            "individual_intelligence": intel,
+            "original_description": triage["original_description"],
+            "original_language": triage["original_language"],
+            "description_en": triage["description_en"],
+            "description_hi": triage["description_hi"],
+            "title_en": report_in.title or triage["title_en"],
+            "title_hi": triage["title_hi"],
+            "executive_brief_en": triage["executive_brief_en"],
+            "executive_brief_hi": triage["executive_brief_hi"],
+            "executive_summary_en": triage["executive_summary_en"],
+            "executive_summary_hi": triage["executive_summary_hi"],
+            "extracted_hazard": triage["extracted_hazard"],
+            "extracted_hazard_hi": triage["extracted_hazard_hi"],
+            "is_acute_hazard": triage.get("is_acute_hazard", False),
+            "hazard_type": triage.get("hazard_type"),
+            "recommended_action": triage["recommended_action"],
+            "recommended_action_hi": triage["recommended_action_hi"],
+            "quality_status": triage["quality_status"],
+            "quality_status_hi": triage["quality_status_hi"],
+            "needs_clarification": triage.get("needs_clarification", False),
+            "target_sla_hours": triage["target_sla_hours"]
         }
 
         # 5. Build and insert CitizenReport
@@ -276,61 +324,108 @@ class FeedbackService:
         return db.query(CitizenReport).filter(CitizenReport.report_number.ilike(clean_id)).first()
 
     @staticmethod
-    def corroborate_report(db: Session, report_id: UUID, user_id: UUID, req: ReportCorroborateRequest) -> Dict[str, Any]:
+    def corroborate_report(db: Session, report_id: UUID, user_id: Optional[UUID], req: ReportCorroborateRequest) -> Dict[str, Any]:
         """Corroborates / upvotes an existing citizen issue."""
-        existing = db.query(ReportCorroboration).filter(
-            ReportCorroboration.report_id == report_id,
-            ReportCorroboration.user_id == user_id
-        ).first()
-
-        if existing:
-            return {"status": "already_corroborated", "report_id": str(report_id)}
-
-        corroboration = ReportCorroboration(
-            report_id=report_id,
-            user_id=user_id,
-            corroboration_type=req.corroboration_type or "confirm_issue",
-            comment=req.comment
-        )
-        db.add(corroboration)
-
         report = db.query(CitizenReport).filter(CitizenReport.id == report_id).first()
-        if report:
-            report.corroboration_count += 1
+        if not report:
+            raise LookupError(f"Citizen report '{report_id}' not found in municipal records.")
 
+        if user_id:
+            existing = db.query(ReportCorroboration).filter(
+                ReportCorroboration.report_id == report_id,
+                ReportCorroboration.user_id == user_id
+            ).first()
+
+            if existing:
+                return {
+                    "status": "already_corroborated",
+                    "report_id": str(report_id),
+                    "corroboration_count": report.corroboration_count
+                }
+
+            try:
+                corroboration = ReportCorroboration(
+                    report_id=report_id,
+                    user_id=user_id,
+                    corroboration_type=req.corroboration_type or "confirm_issue",
+                    comment=req.comment
+                )
+                db.add(corroboration)
+                report.corroboration_count = (report.corroboration_count or 0) + 1
+                db.commit()
+                return {"status": "success", "corroboration_count": report.corroboration_count}
+            except IntegrityError:
+                db.rollback()
+                # If foreign key fails because user_id does not exist in auth.users, increment counter safely
+                report = db.query(CitizenReport).filter(CitizenReport.id == report_id).first()
+                if report:
+                    report.corroboration_count = (report.corroboration_count or 0) + 1
+                    db.commit()
+                    return {"status": "success", "corroboration_count": report.corroboration_count}
+                raise
+
+        # Anonymous / guest corroboration
+        report.corroboration_count = (report.corroboration_count or 0) + 1
         db.commit()
-        return {"status": "success", "corroboration_count": report.corroboration_count if report else 1}
+        return {"status": "success", "corroboration_count": report.corroboration_count}
 
     @staticmethod
-    def corroborate_report_by_identifier(db: Session, identifier: str, user_id: UUID, req: ReportCorroborateRequest) -> Dict[str, Any]:
+    def corroborate_report_by_identifier(db: Session, identifier: str, user_id: Optional[UUID], req: ReportCorroborateRequest) -> Dict[str, Any]:
         """Corroborates / confirms an existing citizen issue by UUID or report_number."""
         report = FeedbackService.resolve_report_by_identifier(db, identifier)
         if not report:
             raise LookupError(f"Citizen report '{identifier}' not found in municipal records.")
 
-        existing = db.query(ReportCorroboration).filter(
-            ReportCorroboration.report_id == report.id,
-            ReportCorroboration.user_id == user_id
-        ).first()
+        if user_id:
+            existing = db.query(ReportCorroboration).filter(
+                ReportCorroboration.report_id == report.id,
+                ReportCorroboration.user_id == user_id
+            ).first()
 
-        if existing:
-            return {
-                "status": "already_corroborated",
-                "report_id": str(report.id),
-                "report_number": report.report_number,
-                "corroboration_count": report.corroboration_count
-            }
+            if existing:
+                return {
+                    "status": "already_corroborated",
+                    "report_id": str(report.id),
+                    "report_number": report.report_number,
+                    "corroboration_count": report.corroboration_count
+                }
 
-        corroboration = ReportCorroboration(
-            report_id=report.id,
-            user_id=user_id,
-            corroboration_type=req.corroboration_type or "confirm_issue",
-            comment=req.comment
-        )
-        db.add(corroboration)
-        report.corroboration_count += 1
+            try:
+                corroboration = ReportCorroboration(
+                    report_id=report.id,
+                    user_id=user_id,
+                    corroboration_type=req.corroboration_type or "confirm_issue",
+                    comment=req.comment
+                )
+                db.add(corroboration)
+                report.corroboration_count = (report.corroboration_count or 0) + 1
+                db.commit()
+                return {
+                    "status": "success",
+                    "message": "Report confirmed and corroborated successfully.",
+                    "report_id": str(report.id),
+                    "report_number": report.report_number,
+                    "corroboration_count": report.corroboration_count
+                }
+            except IntegrityError:
+                db.rollback()
+                # Fallback on FK violation: still record community corroboration safely
+                report = FeedbackService.resolve_report_by_identifier(db, identifier)
+                if report:
+                    report.corroboration_count = (report.corroboration_count or 0) + 1
+                    db.commit()
+                    return {
+                        "status": "success",
+                        "message": "Report confirmed and corroborated successfully.",
+                        "report_id": str(report.id),
+                        "report_number": report.report_number,
+                        "corroboration_count": report.corroboration_count
+                    }
+                raise
+
+        # Anonymous / guest corroboration
+        report.corroboration_count = (report.corroboration_count or 0) + 1
         db.commit()
-
         return {
             "status": "success",
             "message": "Report confirmed and corroborated successfully.",

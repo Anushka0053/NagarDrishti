@@ -20,6 +20,8 @@ import { useMapStore } from '../../store/mapStore';
 import { useLayerStore } from '../../store/layerStore';
 import { feedbackApi } from '../../api/feedback';
 import { aiApi, AITriageResponse } from '../../api/ai';
+import { validateCivicDescription } from '../../utils/civicValidation';
+import { formatCivicCategory } from '../../utils/civicTranslate';
 
 const CATEGORIES = [
   { id: 'road_pothole', label_en: 'Road Damage / Potholes', label_hi: 'सड़क क्षति एवं गड्ढे' },
@@ -43,6 +45,7 @@ export const FeedbackModal: React.FC = () => {
     title,
     description, 
     severity,
+    facilityName,
     hasDraft,
     mediaPreviewUrl,
     setCategory, 
@@ -71,6 +74,8 @@ export const FeedbackModal: React.FC = () => {
   const [customTitle, setCustomTitle] = useState<string>('');
   const [attachedPhotos, setAttachedPhotos] = useState<{ id: string; url: string; name: string; size: string }[]>([]);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [triageLang, setTriageLang] = useState<'en' | 'hi'>(i18n.language === 'hi' ? 'hi' : 'en');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -243,6 +248,13 @@ export const FeedbackModal: React.FC = () => {
 
   // Automated AI Triage when entering review step
   const handleProceedToReview = async () => {
+    setValidationError(null);
+    const clientVal = validateCivicDescription(description);
+    if (!clientVal.isValid) {
+      setValidationError(clientVal.error || 'Please enter a valid description of the civic problem.');
+      return;
+    }
+
     setStep(4);
     setIsTriaging(true);
     try {
@@ -265,12 +277,22 @@ export const FeedbackModal: React.FC = () => {
 
   const handleSubmit = async () => {
     if (isSubmitting) return; // Debounce double-click protection
+    setValidationError(null);
+
+    const clientVal = validateCivicDescription(description);
+    if (!clientVal.isValid) {
+      setValidationError(clientVal.error || 'Please enter a valid description of the civic problem.');
+      setStep(2);
+      return;
+    }
+
     setIsSubmitting(true);
     let reportNum = `ND-MP-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const effectiveTitle = category === 'other' 
       ? (customTitle.trim() || title.trim() || 'Other Municipal Grievance')
       : (title.trim() || `${category.replace('_', ' ').toUpperCase()}`);
-    const reportLoc = resolvedLocation?.district_en ? `${resolvedLocation.ward_en || 'Ward'}, ${resolvedLocation.city_en}` : `${activeCity?.name_en || 'Gwalior'}, MP`;
+    const facilityPrefix = facilityName ? `${facilityName}, ` : '';
+    const reportLoc = `${facilityPrefix}${resolvedLocation?.ward_en ? `${resolvedLocation.ward_en}, ` : ''}${activeCity?.name_en || 'Gwalior'}, MP`;
     const reportLat = latitude || 26.2183;
     const reportLng = longitude || 78.1828;
     const photoUrls = attachedPhotos.map((p) => p.url);
@@ -289,7 +311,17 @@ export const FeedbackModal: React.FC = () => {
         media_paths: photoUrls,
       });
       if (res?.report_number) reportNum = res.report_number;
-    } catch (err) {
+    } catch (err: any) {
+      const respData = err?.response?.data;
+      if (err?.response?.status === 422 || err?.response?.status === 400 || respData?.detail?.error === 'validation_failed') {
+        const valMsg = respData?.detail?.message 
+          ? `${respData.detail.message} ${respData.detail.suggestion || ''}`
+          : (typeof respData?.detail === 'string' ? respData.detail : 'The description contains insufficient civic details or meaningless characters.');
+        setValidationError(valMsg);
+        setIsSubmitting(false);
+        setStep(2);
+        return;
+      }
       console.warn('[Report submitted in resilient mode]', err);
     }
 
@@ -303,6 +335,7 @@ export const FeedbackModal: React.FC = () => {
       longitude: reportLng,
       location: reportLoc,
       location_address: reportLoc,
+      facility_name: facilityName,
       severity: severity,
       status: 'submitted',
       created_at: new Date().toISOString(),
@@ -326,6 +359,11 @@ export const FeedbackModal: React.FC = () => {
       localStorage.setItem('my_citizen_reports', JSON.stringify(saved));
     } catch (e) {
       // Safe ignore
+    }
+
+    // Broadcast instant real-time map event so the beacon appears immediately on the map
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('nd:report_submitted', { detail: newReportObj }));
     }
 
     // Dispatch event so MapContainer immediately adds and shows the new beacon!
@@ -396,6 +434,24 @@ export const FeedbackModal: React.FC = () => {
           {/* STEP 1: CATEGORY SELECTION */}
           {step === 1 && (
             <div className="space-y-3">
+              {/* Target Facility Linked Banner */}
+              {facilityName && (
+                <div className="p-3 rounded-xl bg-gradient-to-r from-cyan-950/70 to-blue-950/60 border border-cyan-500/40 text-cyan-200 flex items-center justify-between text-xs font-semibold shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <span className="p-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-sm">🏥</span>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block uppercase font-mono">
+                        {i18n.language === 'hi' ? 'चिन्हित सार्वजनिक स्थल:' : 'Target Civic Facility:'}
+                      </span>
+                      <strong className="text-white text-xs">{facilityName}</strong>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold">
+                    GIS Linked
+                  </span>
+                </div>
+              )}
+
               <label className="block text-slate-300 font-semibold">
                 {t('feedback_modal.step_issue')}
               </label>
@@ -481,6 +537,16 @@ export const FeedbackModal: React.FC = () => {
                   <Sparkles className="w-3 h-3" /> Sarvam AI Speech-to-Text
                 </span>
               </div>
+
+              {validationError && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/40 rounded-xl text-xs text-rose-300 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block">Validation Required:</span>
+                    <span>{validationError}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Title input */}
               <input
@@ -636,74 +702,148 @@ export const FeedbackModal: React.FC = () => {
           {/* STEP 4: AI TRIAGE & REVIEW */}
           {step === 4 && (
             <div className="space-y-3">
-              {/* AI Triage Card */}
-              <div className="p-3.5 bg-gradient-to-br from-[#131B33] to-[#1C1A38] border border-cyan-500/40 rounded-xl space-y-2.5">
+              {/* AI Triage Card with Dedicated Language Selector */}
+              <div className="p-3.5 bg-gradient-to-br from-[#131B33] to-[#1C1A38] border border-cyan-500/40 rounded-xl space-y-2.5 shadow-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-xs">
                     <Sparkles className="w-4 h-4 text-cyan-400" />
                     <span>Sarvam AI Issue Intelligence Summary</span>
                   </div>
-                  {isTriaging ? (
-                    <div className="flex items-center gap-1.5 text-[11px] text-cyan-400 font-mono">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Synthesizing...</span>
-                    </div>
-                  ) : triageResult ? (
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
-                      {Math.round(triageResult.confidence * 100)}% Confidence
-                    </span>
-                  ) : null}
+                  
+                  {/* Language Toggle for Triage */}
+                  <div className="flex items-center p-0.5 bg-[#0B132B] rounded-lg border border-[#2E3D60]">
+                    <button
+                      type="button"
+                      onClick={() => setTriageLang('en')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                        triageLang === 'en'
+                          ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      English
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTriageLang('hi')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                        triageLang === 'hi'
+                          ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      हिंदी
+                    </button>
+                  </div>
                 </div>
 
-                {triageResult ? (
+                {isTriaging ? (
+                  <div className="flex items-center justify-center gap-2 py-4 text-cyan-400 font-mono text-xs">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Synthesizing multi-modal telemetry with Sarvam AI...</span>
+                  </div>
+                ) : triageResult ? (
                   <div className="space-y-2.5 pt-1 border-t border-[#2E3D60]/60">
-                    {/* Extracted Hazard */}
-                    {triageResult.extracted_hazard && (
-                      <div className="p-2 bg-purple-950/40 border border-purple-500/30 rounded-lg">
-                        <span className="text-[10px] text-purple-300 font-bold block uppercase tracking-wider">
-                          Extracted Hazard / पहचान किया गया जोखिम:
-                        </span>
-                        <p className="text-xs text-slate-100 font-semibold mt-0.5">
-                          {triageResult.extracted_hazard}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Executive Summary */}
-                    <div className="p-2.5 bg-[#0B132B]/80 rounded-lg border border-[#2E3D60] space-y-1">
-                      <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block">
-                        Executive Summary / कार्यकारी सारांश:
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {triageLang === 'hi' ? 'सत्यापन स्थिति:' : 'Verification Quality:'}
                       </span>
-                      <p className="text-xs text-slate-200 leading-relaxed font-sans">
-                        {i18n.language === 'hi'
-                          ? (triageResult.executive_summary_hi || triageResult.executive_summary_en)
-                          : (triageResult.executive_summary_en || triageResult.executive_summary_hi)}
-                      </p>
-                      {triageResult.executive_summary_hi && i18n.language !== 'hi' && (
-                        <p className="text-[11px] text-slate-400 italic pt-1 border-t border-[#2E3D60]/50 font-hindi">
-                          "{triageResult.executive_summary_hi}"
-                        </p>
-                      )}
+                      {(() => {
+                        const status = triageResult.quality_status || 'Needs Verification';
+                        const isSufficient = status === 'Sufficient Information';
+                        const isClarification = status === 'Needs Clarification';
+                        const label = triageLang === 'hi' 
+                          ? (triageResult.quality_status_hi || (isSufficient ? 'सत्यापित विवरण' : isClarification ? 'स्पष्टीकरण आवश्यक' : 'स्थल सत्यापन आवश्यक'))
+                          : status;
+                        const badgeClass = isSufficient 
+                          ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/40'
+                          : isClarification
+                          ? 'text-rose-400 bg-rose-950/60 border-rose-500/40'
+                          : 'text-amber-400 bg-amber-950/60 border-amber-500/40';
+                        return (
+                          <span className={`text-[10px] font-mono border px-2 py-0.5 rounded-full font-bold ${badgeClass}`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </div>
+
+                    {/* Extracted Hazard in Selected Language */}
+                    {(() => {
+                      const hazardRaw = triageLang === 'hi'
+                        ? (triageResult.extracted_hazard_hi || formatCivicCategory(triageResult.extracted_hazard, 'hi'))
+                        : (triageResult.extracted_hazard || formatCivicCategory(triageResult.extracted_hazard_hi, 'en'));
+                      return hazardRaw ? (
+                        <div className="p-2 bg-purple-950/40 border border-purple-500/30 rounded-lg">
+                          <span className="text-[10px] text-purple-300 font-bold block uppercase tracking-wider">
+                            {triageLang === 'hi' ? 'पहचान किया गया मुख्य जोखिम:' : 'Extracted Civic Hazard:'}
+                          </span>
+                          <p className="text-xs text-slate-100 font-semibold mt-0.5">
+                            {hazardRaw}
+                          </p>
+                        </div>
+                      ) : null;
+                    })()}
+
+                    {/* Executive Summary strictly in Selected Language */}
+                    {(() => {
+                      let summaryText = triageLang === 'hi'
+                        ? (triageResult.executive_summary_hi || triageResult.executive_summary_en || '')
+                        : (triageResult.executive_summary_en || triageResult.executive_summary_hi || '');
+
+                      // Clean up any historical concatenated quotes if both languages were glued together
+                      if (triageLang === 'en' && summaryText.includes('"नागरिक')) {
+                        summaryText = summaryText.split('"नागरिक')[0].trim();
+                      } else if (triageLang === 'hi' && summaryText.includes('"नागरिक')) {
+                        summaryText = summaryText.substring(summaryText.indexOf('"नागरिक')).replace(/"/g, '').trim();
+                      }
+
+                      return (
+                        <div className="p-2.5 bg-[#0B132B]/90 rounded-lg border border-[#2E3D60] space-y-1">
+                          <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block">
+                            {triageLang === 'hi' ? 'कार्यकारी सारांश:' : 'Executive Summary:'}
+                          </span>
+                          <p className="text-xs text-slate-200 leading-relaxed font-sans">
+                            {summaryText || (triageLang === 'hi' ? 'विवरण संसाधित किया जा रहा है।' : 'Grievance description undergoing operational triage.')}
+                          </p>
+                        </div>
+                      );
+                    })()}
 
                     {/* Grid metadata */}
                     <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      <div className="p-2 bg-[#0B132B]/60 rounded-lg border border-[#2E3D60]">
-                        <span className="text-slate-400 text-[10px] block">Target Department</span>
-                        <p className="font-semibold text-slate-100 truncate">{triageResult.assigned_department_name}</p>
+                      <div className="p-2 bg-[#0B132B]/80 rounded-lg border border-[#2E3D60]">
+                        <span className="text-slate-400 text-[10px] block">
+                          {triageLang === 'hi' ? 'संबंधित विभाग:' : 'Target Department:'}
+                        </span>
+                        <p className="font-semibold text-slate-100 truncate">
+                          {triageLang === 'hi'
+                            ? (triageResult.assigned_department_name_hi || triageResult.assigned_department_name)
+                            : (triageResult.assigned_department_name || triageResult.assigned_department_name_hi)}
+                        </p>
                       </div>
-                      <div className="p-2 bg-[#0B132B]/60 rounded-lg border border-[#2E3D60]">
-                        <span className="text-slate-400 text-[10px] block">Target SLA</span>
-                        <p className="font-bold text-amber-400">{triageResult.target_sla_hours || 48}h Priority SLA</p>
+                      <div className="p-2 bg-[#0B132B]/80 rounded-lg border border-[#2E3D60]">
+                        <span className="text-slate-400 text-[10px] block">
+                          {triageLang === 'hi' ? 'समाधान लक्ष्य:' : 'Target SLA:'}
+                        </span>
+                        <p className="font-bold text-amber-400 font-mono">{triageResult.target_sla_hours || 48}h Priority SLA</p>
                       </div>
                     </div>
 
-                    {triageResult.recommended_action && (
-                      <div className="p-2 bg-emerald-950/30 border border-emerald-500/30 rounded-lg text-[11px] text-emerald-200">
-                        <span className="font-bold block text-[10px] text-emerald-400 uppercase">Recommended Municipal Action:</span>
-                        <p className="mt-0.5 leading-relaxed">{triageResult.recommended_action}</p>
-                      </div>
-                    )}
+                    {/* Recommended Action */}
+                    {(() => {
+                      const actionText = triageLang === 'hi'
+                        ? (triageResult.recommended_action_hi || triageResult.recommended_action)
+                        : (triageResult.recommended_action || triageResult.recommended_action_hi);
+                      return actionText ? (
+                        <div className="p-2 bg-emerald-950/30 border border-emerald-500/30 rounded-lg text-[11px] text-emerald-200">
+                          <span className="font-bold block text-[10px] text-emerald-400 uppercase">
+                            {triageLang === 'hi' ? 'अनुशंसित नगर निगम कार्रवाई:' : 'Recommended Municipal Action:'}
+                          </span>
+                          <p className="mt-0.5 leading-relaxed">{actionText}</p>
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 ) : (
                   <p className="text-[11px] text-slate-400 py-1">Performing natural-language semantic analysis and hazard extraction...</p>

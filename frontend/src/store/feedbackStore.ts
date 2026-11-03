@@ -12,13 +12,18 @@ interface FeedbackModalState {
   mediaPreviewUrl: string | null;
   hasDraft: boolean;
 
-  openModal: (lat?: number, lng?: number) => void;
+  facilityName: string | null;
+  entityId: string | null;
+
+  openModal: (lat?: number, lng?: number, facilityName?: string | null, entityId?: string | null) => void;
   closeModal: () => void;
   setCoordinates: (lat: number, lng: number) => void;
   setCategory: (cat: string) => void;
   setTitle: (title: string) => void;
   setDescription: (desc: string) => void;
   setSeverity: (sev: string) => void;
+  setFacilityName: (name: string | null) => void;
+  setEntityId: (id: string | null) => void;
   setRecordedAudio: (blob: Blob | null) => void;
   setMediaPreviewUrl: (url: string | null) => void;
   saveDraft: () => void;
@@ -37,16 +42,20 @@ export const useFeedbackStore = create<FeedbackModalState>((set, get) => ({
   title: '',
   description: '',
   severity: 'medium',
+  facilityName: null,
+  entityId: null,
   recordedAudioBlob: null,
   mediaPreviewUrl: null,
   hasDraft: typeof window !== 'undefined' && !!localStorage.getItem(DRAFT_KEY),
 
-  openModal: (lat, lng) => {
+  openModal: (lat, lng, facilityName, entityId) => {
     const hasSaved = typeof window !== 'undefined' && !!localStorage.getItem(DRAFT_KEY);
     set({
       isOpen: true,
       latitude: lat ?? 26.2183,
       longitude: lng ?? 78.1828,
+      facilityName: facilityName ?? null,
+      entityId: entityId ?? null,
       hasDraft: hasSaved,
     });
   },
@@ -56,6 +65,8 @@ export const useFeedbackStore = create<FeedbackModalState>((set, get) => ({
   setTitle: (title) => set({ title }),
   setDescription: (desc) => set({ description: desc }),
   setSeverity: (severity) => set({ severity }),
+  setFacilityName: (name) => set({ facilityName: name }),
+  setEntityId: (id) => set({ entityId: id }),
   setRecordedAudio: (blob) => set({ recordedAudioBlob: blob }),
   setMediaPreviewUrl: (url) => set({ mediaPreviewUrl: url }),
 
@@ -112,6 +123,8 @@ export const useFeedbackStore = create<FeedbackModalState>((set, get) => ({
       title: '',
       description: '',
       severity: 'medium',
+      facilityName: null,
+      entityId: null,
       recordedAudioBlob: null,
       mediaPreviewUrl: null,
     }),

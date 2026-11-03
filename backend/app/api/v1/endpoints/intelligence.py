@@ -130,7 +130,7 @@ def analyze_individual_report(report_id: UUID, db: Session = Depends(get_db)):
 @router.get("/{entity_type}/{entity_id}", response_model=EntityIntelligenceBundle, tags=["Civic Intelligence"])
 def get_intelligence_overview(
     entity_type: str,
-    entity_id: UUID,
+    entity_id: str,
     category: Optional[str] = Query(None),
     status_filter: Optional[str] = Query(None, alias="status"),
     db: Session = Depends(get_db)

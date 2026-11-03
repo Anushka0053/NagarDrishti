@@ -30,13 +30,20 @@ export interface AITriageResponse {
   sentiment: string;
   detected_language: string;
   assigned_department_name: string;
+  assigned_department_name_hi?: string;
   is_ai_prediction: boolean;
   triage_summary: string;
   executive_summary_en?: string;
   executive_summary_hi?: string;
   extracted_hazard?: string;
+  extracted_hazard_hi?: string;
   recommended_action?: string;
+  recommended_action_hi?: string;
+  quality_status?: string;
+  quality_status_hi?: string;
   target_sla_hours?: number;
+  description_en?: string;
+  description_hi?: string;
 }
 
 export const aiApi = {

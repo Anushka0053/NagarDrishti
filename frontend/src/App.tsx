@@ -7,6 +7,7 @@ import { PublicHomePage } from './pages/PublicHomePage';
 import { PublicReportPage } from './pages/PublicReportPage';
 import { MyReportsPage } from './pages/MyReportsPage';
 import { PublicInsightsPage } from './pages/PublicInsightsPage';
+import { PublicEntityReportPage } from './pages/PublicEntityReportPage';
 import { AboutPage } from './pages/AboutPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -44,6 +45,7 @@ export const App: React.FC = () => {
           <Route path="/report" element={<PublicReportPage />} />
           <Route path="/my-reports" element={<MyReportsPage />} />
           <Route path="/insights" element={<PublicInsightsPage />} />
+          <Route path="/public-report/:entityType/:entityId" element={<PublicEntityReportPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/login" element={<LoginPage />} />
 

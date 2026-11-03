@@ -121,6 +121,12 @@ function getGwaliorFallbackFeatures(layerSlug: string, category: string) {
     return [
       {
         type: 'Feature',
+        id: 'hosp-0',
+        geometry: { type: 'Point', coordinates: [78.18800, 26.21550] },
+        properties: { name_en: 'Om Hospital', name_hi: 'ओम हॉस्पिटल', category: 'hospital', amenity: 'hospital', operator: 'Private Specialty Hospital' }
+      },
+      {
+        type: 'Feature',
         id: 'hosp-1',
         geometry: { type: 'Point', coordinates: [78.19727, 26.21359] },
         properties: { name_en: 'Prayas Children Hospital', category: 'hospital', amenity: 'hospital', operator: 'Private Healthcare' }
@@ -142,6 +148,12 @@ function getGwaliorFallbackFeatures(layerSlug: string, category: string) {
         id: 'hosp-4',
         geometry: { type: 'Point', coordinates: [78.17900, 26.20800] },
         properties: { name_en: 'JAH Hospital & Medical College', category: 'hospital', amenity: 'hospital', operator: 'Govt of MP' }
+      },
+      {
+        type: 'Feature',
+        id: 'hosp-5',
+        geometry: { type: 'Point', coordinates: [78.19250, 26.21420] },
+        properties: { name_en: 'City Hospital And Research Centre - Gwalior', name_hi: 'सिटी हॉस्पिटल एंड रिसर्च सेंटर - ग्वालियर', category: 'hospital', amenity: 'hospital', operator: 'Multi-Specialty Research Hospital' }
       }
     ];
   }
@@ -313,6 +325,8 @@ export const MapContainer: React.FC = () => {
     layerOpacity,
     setSelectedFeature,
     showWardBoundaries,
+    showCitizenReports,
+    showIssueClusters,
     showIssueHotspots,
     selectedSectorId,
     selectedDepartmentId,
@@ -321,6 +335,7 @@ export const MapContainer: React.FC = () => {
   const [wardsData, setWardsData] = useState<Ward[]>([]);
   const [hoveredWardId, setHoveredWardId] = useState<string | null>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [styleVersion, setStyleVersion] = useState(0);
   const prevBasemapRef = useRef<string>(activeBasemap);
 
   // 1. Fetch Wards when activeCity changes
@@ -367,6 +382,7 @@ export const MapContainer: React.FC = () => {
 
     map.on('style.load', () => {
       setIsMapLoaded(true);
+      setStyleVersion((v) => v + 1);
       initTemporaryLayers(map);
     });
 
@@ -882,15 +898,27 @@ export const MapContainer: React.FC = () => {
       features: wardFeatures,
     };
 
+    // Find first operational layer to insert ward polygons UNDER them
+    const allLayers = map.getStyle()?.layers || [];
+    const firstOperationalLayer = allLayers.find((l: any) => 
+      l.id.startsWith('nd-layer-') || 
+      l.id.startsWith('nd-citizen-reports-') || 
+      l.id.startsWith('nd-issue-') || 
+      l.id.startsWith('nd-temp-')
+    )?.id;
+
     if (map.getSource(sourceId)) {
       (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData(geojsonData as any);
+      if (map.getLayer(fillLayerId)) map.setLayoutProperty(fillLayerId, 'visibility', 'visible');
+      if (map.getLayer(lineLayerId)) map.setLayoutProperty(lineLayerId, 'visibility', 'visible');
+      if (map.getLayer(labelLayerId)) map.setLayoutProperty(labelLayerId, 'visibility', 'visible');
     } else {
       map.addSource(sourceId, {
         type: 'geojson',
         data: geojsonData as any,
       });
 
-      // Ward Fill Layer
+      // Ward Fill Layer (inserted beneath point/feature layers)
       map.addLayer({
         id: fillLayerId,
         type: 'fill',
@@ -900,13 +928,13 @@ export const MapContainer: React.FC = () => {
           'fill-opacity': [
             'case',
             ['==', ['get', 'id'], activeWard?.id || ''],
-            0.35,
+            0.30,
             ['==', ['get', 'id'], hoveredWardId || ''],
-            0.2,
-            0.06,
+            0.18,
+            0.05,
           ],
         },
-      });
+      }, firstOperationalLayer);
 
       // Ward Boundary Line Layer
       map.addLayer({
@@ -928,7 +956,7 @@ export const MapContainer: React.FC = () => {
           ],
           'line-dasharray': [3, 2],
         },
-      });
+      }, firstOperationalLayer);
 
       // Ward Center Label Layer (safe check for glyphs)
       if (map.getStyle()?.glyphs) {
@@ -948,7 +976,7 @@ export const MapContainer: React.FC = () => {
             'text-halo-color': '#0B132B',
             'text-halo-width': 2,
           },
-        });
+        }, firstOperationalLayer);
       }
 
       // Ward Interactivity
@@ -966,6 +994,22 @@ export const MapContainer: React.FC = () => {
       });
 
       map.on('click', fillLayerId, (e) => {
+        // Guard: check if a specific point or line feature was clicked directly under cursor
+        const hitFeatures = map.queryRenderedFeatures(e.point, {
+          layers: (map.getStyle()?.layers || [])
+            .map((l: any) => l.id)
+            .filter((id: string) => 
+              id.startsWith('nd-layer-') || 
+              id.startsWith('nd-citizen-reports-') || 
+              id.startsWith('nd-issue-cluster-') ||
+              id.startsWith('nd-temp-')
+            )
+        });
+        if (hitFeatures && hitFeatures.length > 0) {
+          // Point feature clicked; let feature handler run, do not swallow with ward click
+          return;
+        }
+
         if (e.features && e.features.length > 0) {
           const props = e.features[0].properties;
           const matchedWard = wardsData.find((w) => w.id === props?.id);
@@ -982,10 +1026,32 @@ export const MapContainer: React.FC = () => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
 
+    // Retrieve active citizen reports to cross-reference facilities with reported civic issues
+    const activeReportedLocations: Array<{ name: string; lat: number; lng: number; hazard?: string }> = [];
+    try {
+      const localSaved = JSON.parse(localStorage.getItem('my_citizen_reports') || '[]');
+      for (const r of localSaved) {
+        if (r.latitude && r.longitude) {
+          activeReportedLocations.push({
+            name: (r.facility_name || r.location_address || r.location || '').toLowerCase().trim(),
+            lat: Number(r.latitude),
+            lng: Number(r.longitude),
+            hazard: r.extracted_hazard || r.category
+          });
+        }
+      }
+    } catch (e) {}
+
     for (const layer of layers) {
+      // Strictly skip any cluster layers as requested
+      if ((layer.name_en || '').toLowerCase().includes('cluster') || (layer.slug || '').toLowerCase().includes('cluster')) {
+        continue;
+      }
+
       const sourceId = `nd-source-${layer.id}`;
       const layerId = `nd-layer-${layer.id}`;
       const lineLayerId = `${layerId}-line`;
+      const haloLayerId = `${layerId}-alert-halo`;
       const isActive = activeLayerIds.has(layer.id);
       const userOpacity = layerOpacity[layer.id] ?? 1.0;
 
@@ -998,9 +1064,12 @@ export const MapContainer: React.FC = () => {
         if (map.getLayer(lineLayerId)) {
           map.setLayoutProperty(lineLayerId, 'visibility', shouldBeVisible ? 'visible' : 'none');
         }
+        if (map.getLayer(haloLayerId)) {
+          map.setLayoutProperty(haloLayerId, 'visibility', shouldBeVisible ? 'visible' : 'none');
+        }
 
         if (shouldBeVisible) {
-          const geomType = layer.geometry_type.toUpperCase();
+          const geomType = (layer.geometry_type || 'POINT').toUpperCase();
           if (geomType === 'POINT' || geomType === 'MULTIPOINT') {
             map.setPaintProperty(layerId, 'circle-opacity', 0.9 * userOpacity);
           } else if (geomType === 'LINESTRING' || geomType === 'MULTILINESTRING') {
@@ -1038,16 +1107,63 @@ export const MapContainer: React.FC = () => {
           layerFeaturesCacheRef.current[layer.id] = geojsonData;
         }
 
-        // Add source safely
-        if (!map.getSource(sourceId)) {
+        // Cross-reference features against active citizen grievance reports
+        if (geojsonData && geojsonData.features) {
+          for (const f of geojsonData.features) {
+            const fNameEn = (f.properties?.name_en || '').toLowerCase().trim();
+            const fNameHi = (f.properties?.name_hi || '').toLowerCase().trim();
+            const fName = (f.properties?.name || '').toLowerCase().trim();
+            const coords = f.geometry?.type === 'Point' ? f.geometry.coordinates : null;
+
+            let hasIssue = false;
+            let matchingHazard = '';
+
+            for (const rep of activeReportedLocations) {
+              if (rep.name) {
+                if (
+                  (fNameEn && (fNameEn.includes(rep.name) || rep.name.includes(fNameEn))) ||
+                  (fNameHi && (fNameHi.includes(rep.name) || rep.name.includes(fNameHi))) ||
+                  (fName && (fName.includes(rep.name) || rep.name.includes(fName)))
+                ) {
+                  hasIssue = true;
+                  matchingHazard = rep.hazard || 'Active Civic Grievance';
+                  break;
+                }
+              }
+              if (coords && rep.lat && rep.lng) {
+                const dLng = (coords[0] - rep.lng) * 96000;
+                const dLat = (coords[1] - rep.lat) * 111000;
+                const distMeters = Math.sqrt(dLng * dLng + dLat * dLat);
+                if (distMeters <= 200) {
+                  hasIssue = true;
+                  matchingHazard = rep.hazard || 'Active Civic Grievance';
+                  break;
+                }
+              }
+            }
+
+            f.properties.has_reported_issues = hasIssue;
+            if (hasIssue) {
+              f.properties.alert_status = 'Active Grievance Reported';
+              f.properties.recent_hazard = matchingHazard;
+            }
+          }
+        }
+
+        // Add or update source safely
+        if (map.getSource(sourceId)) {
+          (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData(geojsonData);
+        } else {
           map.addSource(sourceId, {
             type: 'geojson',
             data: geojsonData,
           });
         }
 
-        const geomType = layer.geometry_type.toUpperCase();
+        const geomType = (layer.geometry_type || 'POINT').toUpperCase();
         const cfg = layer.style_config || {};
+        const isCurrentlyActive = useLayerStore.getState().activeLayerIds.has(layer.id);
+        const layerVisibility = isCurrentlyActive ? 'visible' : 'none';
 
         // Category-based color resolver for distinct infrastructure identification
         const getCategoryPointColor = (layerSlug: string, cat?: string) => {
@@ -1061,18 +1177,59 @@ export const MapContainer: React.FC = () => {
         };
 
         if (geomType === 'POINT' || geomType === 'MULTIPOINT') {
+          // 1. Add Alert Halo Ring for facilities with active issues
+          if (!map.getLayer(haloLayerId)) {
+            map.addLayer({
+              id: haloLayerId,
+              type: 'circle',
+              source: sourceId,
+              filter: ['==', ['get', 'has_reported_issues'], true],
+              layout: { visibility: layerVisibility },
+              paint: {
+                'circle-radius': 18,
+                'circle-color': '#EF4444',
+                'circle-opacity': 0.28,
+                'circle-stroke-color': '#EF4444',
+                'circle-stroke-width': 1.5,
+              },
+            });
+          } else {
+            map.setLayoutProperty(haloLayerId, 'visibility', layerVisibility);
+          }
+
+          // 2. Main Circle Layer with Dynamic Issue Alert Pin State (Red if issue reported, normal otherwise)
           if (!map.getLayer(layerId)) {
             map.addLayer({
               id: layerId,
               type: 'circle',
               source: sourceId,
-              layout: { visibility: 'visible' },
+              layout: { visibility: layerVisibility },
               paint: {
-                'circle-radius': cfg.point_radius || 6,
-                'circle-color': getCategoryPointColor(layer.slug, layer.category),
-                'circle-stroke-color': cfg.stroke_color || '#FFFFFF',
-                'circle-stroke-width': cfg.stroke_width || 1.5,
-                'circle-opacity': (cfg.fill_opacity || 0.9) * userOpacity,
+                'circle-radius': [
+                  'case',
+                  ['boolean', ['get', 'has_reported_issues'], false],
+                  9.5,
+                  cfg.point_radius || 6.5
+                ],
+                'circle-color': [
+                  'case',
+                  ['boolean', ['get', 'has_reported_issues'], false],
+                  '#EF4444', // Alert Red
+                  getCategoryPointColor(layer.slug, layer.category),
+                ],
+                'circle-stroke-color': [
+                  'case',
+                  ['boolean', ['get', 'has_reported_issues'], false],
+                  '#FEE2E2',
+                  cfg.stroke_color || '#FFFFFF',
+                ],
+                'circle-stroke-width': [
+                  'case',
+                  ['boolean', ['get', 'has_reported_issues'], false],
+                  3,
+                  cfg.stroke_width || 1.5,
+                ],
+                'circle-opacity': (cfg.fill_opacity || 0.92) * userOpacity,
               },
             });
           }
@@ -1082,7 +1239,7 @@ export const MapContainer: React.FC = () => {
               id: layerId,
               type: 'line',
               source: sourceId,
-              layout: { visibility: 'visible' },
+              layout: { visibility: layerVisibility },
               paint: {
                 'line-color': cfg.stroke_color || '#F59E0B',
                 'line-width': cfg.stroke_width || 3.5,
@@ -1096,7 +1253,7 @@ export const MapContainer: React.FC = () => {
               id: layerId,
               type: 'fill',
               source: sourceId,
-              layout: { visibility: 'visible' },
+              layout: { visibility: layerVisibility },
               paint: {
                 'fill-color': cfg.fill_color || '#10B981',
                 'fill-opacity': (cfg.fill_opacity || 0.4) * userOpacity,
@@ -1108,7 +1265,7 @@ export const MapContainer: React.FC = () => {
               id: lineLayerId,
               type: 'line',
               source: sourceId,
-              layout: { visibility: 'visible' },
+              layout: { visibility: layerVisibility },
               paint: {
                 'line-color': cfg.stroke_color || '#059669',
                 'line-width': cfg.stroke_width || 1.5,
@@ -1130,162 +1287,21 @@ export const MapContainer: React.FC = () => {
     }
   }, [layers, activeLayerIds, layerOpacity, activeCity?.id, activeWard?.id, selectedSectorId, selectedDepartmentId]);
 
-  // 13. Synchronize AI Issue Hotspots & Clusters Layer on Map
-  const syncIssueHotspotsLayer = useCallback(async () => {
+  // 13. Ensure legacy issue cluster & heatmap layers are strictly removed as requested
+  const syncIssueHotspotsLayer = useCallback(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
 
     const sourceId = 'nd-issue-clusters-source';
+    const heatmapLayerId = 'nd-issue-heatmap';
     const circleLayerId = 'nd-issue-cluster-circles';
     const labelLayerId = 'nd-issue-cluster-labels';
 
-    if (!showIssueHotspots || !activeCity) {
-      if (map.getLayer(labelLayerId)) map.removeLayer(labelLayerId);
-      if (map.getLayer(circleLayerId)) map.removeLayer(circleLayerId);
-      if (map.getSource(sourceId)) map.removeSource(sourceId);
-      return;
-    }
-
-    try {
-      const clusters = await intelligenceApi.getActiveClusters(activeCity.id);
-      const features = (clusters || []).map((c) => ({
-        type: 'Feature' as const,
-        id: c.id,
-        geometry: {
-          type: 'Point' as const,
-          coordinates: [c.longitude, c.latitude],
-        },
-        properties: {
-          id: c.id,
-          city_id: c.city_id,
-          category: c.category,
-          cluster_title_en: c.cluster_title_en || `${c.category.toUpperCase()} Cluster`,
-          cluster_title_hi: c.cluster_title_hi,
-          report_count: c.report_count || 1,
-          unresolved_count: c.unresolved_count || 0,
-          composite_risk_score: c.composite_risk_score || 0.5,
-          cluster_status: c.cluster_status || 'active',
-          provenance: 'AI Derived & Citizen Corroborated',
-        },
-      }));
-
-      const geojsonData = {
-        type: 'FeatureCollection' as const,
-        features,
-      };
-
-      if (map.getSource(sourceId)) {
-        (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData(geojsonData);
-      } else {
-        map.addSource(sourceId, {
-          type: 'geojson',
-          data: geojsonData,
-        });
-
-        // Pulsing / Distinct Hotspot Circles
-        map.addLayer({
-          id: circleLayerId,
-          type: 'circle',
-          source: sourceId,
-          paint: {
-            'circle-radius': [
-              'interpolate',
-              ['linear'],
-              ['get', 'report_count'],
-              1, 10,
-              5, 16,
-              15, 24,
-              30, 32,
-            ],
-            'circle-color': [
-              'interpolate',
-              ['linear'],
-              ['get', 'composite_risk_score'],
-              0.0, '#F59E0B',
-              0.4, '#F97316',
-              0.7, '#EF4444',
-              1.0, '#DC2626',
-            ],
-            'circle-stroke-color': '#FFFFFF',
-            'circle-stroke-width': 2.5,
-            'circle-opacity': 0.88,
-          },
-        });
-
-        // Cluster Count Labels (safe check for glyphs)
-        if (map.getStyle()?.glyphs) {
-          map.addLayer({
-            id: labelLayerId,
-            type: 'symbol',
-            source: sourceId,
-            layout: {
-              'text-field': ['to-string', ['get', 'report_count']],
-              'text-size': 11,
-              'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
-              'text-anchor': 'center',
-              'text-allow-overlap': true,
-            },
-            paint: {
-              'text-color': '#FFFFFF',
-              'text-halo-color': '#1E293B',
-              'text-halo-width': 1.5,
-            },
-          });
-        }
-
-        // Interactivity
-        map.on('mouseenter', circleLayerId, () => {
-          map.getCanvas().style.cursor = 'pointer';
-        });
-        map.on('mouseleave', circleLayerId, () => {
-          map.getCanvas().style.cursor = '';
-        });
-
-        map.on('click', circleLayerId, (e) => {
-          if (e.features && e.features.length > 0) {
-            const feat = e.features[0];
-            const p = feat.properties || {};
-            const coords = (feat.geometry as any).coordinates;
-
-            map.flyTo({
-              center: [coords[0], coords[1]],
-              zoom: 15,
-              duration: 800,
-            });
-
-            setSelectedFeature({
-              feature_id: p.id,
-              layer_id: 'civic-intelligence-clusters',
-              layer_name_en: 'AI Civic Issue Hotspots',
-              layer_name_hi: 'नागरिक समस्या हॉटस्पॉट',
-              name_en: p.cluster_title_en,
-              name_hi: p.cluster_title_hi,
-              category: p.category,
-              properties: {
-                'Cluster Category': p.category,
-                'Total Reports': p.report_count,
-                'Unresolved Reports': p.unresolved_count,
-                'AI Composite Risk Score': `${(p.composite_risk_score * 100).toFixed(0)}%`,
-                'Cluster Status': p.cluster_status,
-                'Provenance': 'AI Derived & Citizen Corroborated',
-                'Methodology': 'Spatial DBSCAN / PostGIS ST_DWithin 200m buffer',
-              },
-              source_attribution_en: 'NagarDrishti AI Civic Intelligence Engine',
-              source_attribution_hi: 'नगरदृष्टि एआई नागरिक आसूचना इंजन',
-              source_health: 'healthy',
-              last_updated: new Date().toISOString(),
-              city_name: activeCity.name_en,
-              latitude: coords[1],
-              longitude: coords[0],
-            });
-            setInspectorOpen(true);
-          }
-        });
-      }
-    } catch (err) {
-      console.warn('[Failed to sync issue hotspots layer]', err);
-    }
-  }, [showIssueHotspots, activeCity?.id, setSelectedFeature, setInspectorOpen]);
+    if (map.getLayer(labelLayerId)) map.removeLayer(labelLayerId);
+    if (map.getLayer(circleLayerId)) map.removeLayer(circleLayerId);
+    if (map.getLayer(heatmapLayerId)) map.removeLayer(heatmapLayerId);
+    if (map.getSource(sourceId)) map.removeSource(sourceId);
+  }, []);
 
   // 14. Synchronize Authenticated Individual Citizen Reports Layer on Map
   const syncCitizenReportsLayer = useCallback(async () => {
@@ -1295,6 +1311,7 @@ export const MapContainer: React.FC = () => {
     const sourceId = 'nd-citizen-reports-source';
     const circleLayerId = 'nd-citizen-reports-beacon';
     const coreLayerId = 'nd-citizen-reports-beacon-core';
+    const reportsVisibility = showCitizenReports ? 'visible' : 'none';
 
     try {
       let geojson: any = null;
@@ -1329,6 +1346,8 @@ export const MapContainer: React.FC = () => {
                 description: lr.description || '',
                 status: lr.status || 'submitted',
                 severity: lr.severity || 'medium',
+                facility_name: lr.facility_name,
+                location: lr.location || lr.location_address || 'Municipal Area',
                 location_address: lr.location || lr.location_address || 'Municipal Area',
                 corroboration_count: 1,
                 created_at: lr.created_at || new Date().toISOString(),
@@ -1360,6 +1379,7 @@ export const MapContainer: React.FC = () => {
           id: circleLayerId,
           type: 'circle',
           source: sourceId,
+          layout: { visibility: reportsVisibility },
           paint: {
             'circle-radius': [
               'match',
@@ -1389,6 +1409,7 @@ export const MapContainer: React.FC = () => {
           id: coreLayerId,
           type: 'circle',
           source: sourceId,
+          layout: { visibility: reportsVisibility },
           paint: {
             'circle-radius': 3.5,
             'circle-color': '#FFFFFF',
@@ -1422,6 +1443,7 @@ export const MapContainer: React.FC = () => {
               name_en: p.title || `Citizen Complaint ${p.report_number}`,
               name_hi: p.title,
               category: p.category,
+              facility_name: p.facility_name,
               properties: {
                 ...p,
                 'Report Number': p.report_number,
@@ -1429,6 +1451,7 @@ export const MapContainer: React.FC = () => {
                 'Status': p.status || 'submitted',
                 'Severity': p.severity || 'medium',
                 'Location': p.location_address || 'Municipal Area',
+                'facility_name': p.facility_name,
                 'Corroboration Count': p.corroboration_count || 1,
                 'Submission Date': p.created_at,
                 'description': p.description || '',
@@ -1447,21 +1470,32 @@ export const MapContainer: React.FC = () => {
           }
         });
       }
+
+      // Update layer visibility immediately
+      if (map.getLayer(circleLayerId)) {
+        map.setLayoutProperty(circleLayerId, 'visibility', reportsVisibility);
+      }
+      if (map.getLayer(coreLayerId)) {
+        map.setLayoutProperty(coreLayerId, 'visibility', reportsVisibility);
+      }
     } catch (err) {
       console.warn('[Failed to sync citizen reports layer]', err);
     }
-  }, [activeCity?.id, setSelectedFeature, setInspectorOpen]);
+  }, [activeCity?.id, showCitizenReports, setSelectedFeature, setInspectorOpen]);
 
   // Listen for real-time report submissions across modals / pages
   useEffect(() => {
     const handleReportSubmitted = () => {
       syncCitizenReportsLayer();
+      syncGISLayers();
     };
     window.addEventListener('nd-report-submitted', handleReportSubmitted);
+    window.addEventListener('nd:report_submitted', handleReportSubmitted);
     return () => {
       window.removeEventListener('nd-report-submitted', handleReportSubmitted);
+      window.removeEventListener('nd:report_submitted', handleReportSubmitted);
     };
-  }, [syncCitizenReportsLayer]);
+  }, [syncCitizenReportsLayer, syncGISLayers]);
 
   // Re-sync all layers whenever active city/ward, layers, or style load changes
   useEffect(() => {
@@ -1471,7 +1505,18 @@ export const MapContainer: React.FC = () => {
       syncIssueHotspotsLayer();
       syncCitizenReportsLayer();
     }
-  }, [isMapLoaded, syncWardLayer, syncGISLayers, syncIssueHotspotsLayer, syncCitizenReportsLayer]);
+  }, [
+    isMapLoaded,
+    styleVersion,
+    syncWardLayer,
+    syncGISLayers,
+    syncIssueHotspotsLayer,
+    syncCitizenReportsLayer,
+    showWardBoundaries,
+    showCitizenReports,
+    showIssueClusters,
+    showIssueHotspots
+  ]);
 
   // Toolbar Actions
   const handleZoomIn = () => mapRef.current?.zoomIn({ duration: 300 });
