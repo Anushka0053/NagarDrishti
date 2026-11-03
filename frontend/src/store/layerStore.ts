@@ -13,6 +13,8 @@ interface LayerState {
   layerSearchQuery: string;
   showWardBoundaries: boolean;
   showIssueHotspots: boolean;
+  showCitizenReports: boolean;
+  showIssueClusters: boolean;
 
   setLayers: (layers: GISLayer[]) => void;
   toggleLayer: (layerId: string) => void;
@@ -31,6 +33,10 @@ interface LayerState {
   toggleWardBoundaries: () => void;
   setShowIssueHotspots: (show: boolean) => void;
   toggleIssueHotspots: () => void;
+  setShowCitizenReports: (show: boolean) => void;
+  toggleCitizenReports: () => void;
+  setShowIssueClusters: (show: boolean) => void;
+  toggleIssueClusters: () => void;
 }
 
 export const useLayerStore = create<LayerState>((set) => ({
@@ -45,6 +51,8 @@ export const useLayerStore = create<LayerState>((set) => ({
   layerSearchQuery: '',
   showWardBoundaries: false,
   showIssueHotspots: true,
+  showCitizenReports: true,
+  showIssueClusters: true,
 
   setLayers: (layers) => set({ layers }),
   toggleLayer: (layerId) =>
@@ -97,4 +105,8 @@ export const useLayerStore = create<LayerState>((set) => ({
   toggleWardBoundaries: () => set((state) => ({ showWardBoundaries: !state.showWardBoundaries })),
   setShowIssueHotspots: (show) => set({ showIssueHotspots: show }),
   toggleIssueHotspots: () => set((state) => ({ showIssueHotspots: !state.showIssueHotspots })),
+  setShowCitizenReports: (show) => set({ showCitizenReports: show }),
+  toggleCitizenReports: () => set((state) => ({ showCitizenReports: !state.showCitizenReports })),
+  setShowIssueClusters: (show) => set({ showIssueClusters: show }),
+  toggleIssueClusters: () => set((state) => ({ showIssueClusters: !state.showIssueClusters })),
 }));

@@ -67,7 +67,7 @@ class NewsMentionResponse(BaseModel):
 
 class EntityIntelligenceBundle(BaseModel):
     entity_type: str
-    entity_id: UUID
+    entity_id: str
     title_en: str
     title_hi: str
     risk_score: Optional[RiskScoreResponse] = None
@@ -78,6 +78,19 @@ class EntityIntelligenceBundle(BaseModel):
     news_mentions: List[NewsMentionResponse] = Field(default_factory=list)
     ai_grounded_summary_hi: Optional[str] = None
     ai_grounded_summary_en: Optional[str] = None
+    # Amazon-Style AI Civic Overview extensions
+    frequently_reported_issues: List[Dict[str, Any]] = Field(default_factory=list)
+    positive_observations: List[str] = Field(default_factory=list)
+    positive_observations_hi: List[str] = Field(default_factory=list)
+    negative_observations: List[str] = Field(default_factory=list)
+    negative_observations_hi: List[str] = Field(default_factory=list)
+    recurring_issues_trends: List[str] = Field(default_factory=list)
+    recurring_issues_trends_hi: List[str] = Field(default_factory=list)
+    evidence_photographs: List[Dict[str, Any]] = Field(default_factory=list)
+    recommended_actions_en: List[str] = Field(default_factory=list)
+    recommended_actions_hi: List[str] = Field(default_factory=list)
+    overall_civic_condition_en: Optional[str] = None
+    overall_civic_condition_hi: Optional[str] = None
     data_freshness_status: str = "healthy"
 
 
@@ -128,6 +141,11 @@ class AreaIntelligenceReportResponse(BaseModel):
     suggested_departments: List[str]
     recommended_actions: List[str]
     executive_summary: str
+    executive_summary_en: Optional[str] = None
+    executive_summary_hi: Optional[str] = None
+    distinct_issues_breakdown: List[Dict[str, Any]] = Field(default_factory=list)
+    grouped_evidence_media: List[Dict[str, Any]] = Field(default_factory=list)
+    probable_duplicates: List[Dict[str, Any]] = Field(default_factory=list)
     confidence_score: float
     limitations: str
     source_report_ids: List[str]
@@ -145,6 +163,7 @@ class IndividualReportAIAnalysisResponse(BaseModel):
     category: str
     suggested_category: str
     suggested_department: str
+    suggested_department_hi: Optional[str] = None
     priority_suggestion: str
     urgency_level: str
     sentiment_score: str
@@ -152,4 +171,21 @@ class IndividualReportAIAnalysisResponse(BaseModel):
     evidence_references: List[str]
     ai_recommendations: List[str]
     detected_duplicates: List[Dict[str, Any]] = Field(default_factory=list)
+    reported_problem: Optional[str] = None
+    reported_problem_hi: Optional[str] = None
+    affected_infrastructure: Optional[str] = None
+    affected_infrastructure_hi: Optional[str] = None
+    reported_impact: Optional[str] = None
+    reported_impact_hi: Optional[str] = None
+    location_summary: Optional[str] = None
+    responsible_department: Optional[str] = None
+    responsible_department_hi: Optional[str] = None
+    evidence_available: List[str] = Field(default_factory=list)
+    missing_information: List[str] = Field(default_factory=list)
+    recommended_action: Optional[str] = None
+    recommended_action_hi: Optional[str] = None
+    reported_facts: List[str] = Field(default_factory=list)
+    ai_interpretations: List[str] = Field(default_factory=list)
+    recommendations: List[str] = Field(default_factory=list)
+    media_references: List[Dict[str, Any]] = Field(default_factory=list)
     analyzed_at: datetime

@@ -36,10 +36,10 @@ export const PublicInsightsPage: React.FC = () => {
   const mappedFeatures = analytics?.mapped_features_count ?? analytics?.verified_features_count ?? 0;
 
   return (
-    <div className="min-h-screen w-full bg-[#0B132B] text-slate-100 flex flex-col font-sans select-none overflow-y-auto scrollbar-thin">
+    <div className="h-screen w-full bg-[#0B132B] text-slate-100 flex flex-col font-sans select-none overflow-y-auto">
       <PublicHeader cities={cities} />
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 space-y-8">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 space-y-8 pb-24">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>

@@ -446,11 +446,11 @@ export const GovReportsCenterPage: React.FC = () => {
                     <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-[#2E3D60]">
                       <div>
                         <span className="text-slate-400">Suggested Dept:</span>
-                        <p className="font-bold text-cyan-300">{aiAnalysis.recommended_department}</p>
+                        <p className="font-bold text-cyan-300">{aiAnalysis.recommended_department || aiAnalysis.suggested_department || 'Municipal Services'}</p>
                       </div>
                       <div>
                         <span className="text-slate-400">Urgency Assessment:</span>
-                        <p className="font-bold text-amber-400 capitalize">{aiAnalysis.sentiment_urgency.urgency}</p>
+                        <p className="font-bold text-amber-400 capitalize">{aiAnalysis.sentiment_urgency?.urgency || aiAnalysis.urgency_level || 'Medium'}</p>
                       </div>
                     </div>
 

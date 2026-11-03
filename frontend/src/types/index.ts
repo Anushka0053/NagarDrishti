@@ -257,6 +257,7 @@ export interface IdentifiedFeature extends IdentifyResult {
   geometry?: any;
   city_name?: string;
   ward_name?: string;
+  facility_name?: string | null;
   latitude?: number;
   longitude?: number;
 }
@@ -372,6 +373,7 @@ export interface EntityIntelligence {
   active_reports_count: number;
   resolved_reports_count: number;
   linked_citizen_reports?: LinkedCitizenReport[];
+  recent_reports?: Array<any>;
   public_records?: Array<{
     id: string;
     title_en: string;
@@ -381,6 +383,31 @@ export interface EntityIntelligence {
   }>;
   ai_grounded_summary_hi?: string;
   ai_grounded_summary_en?: string;
+  frequently_reported_issues?: Array<{
+    category: string;
+    category_label_en: string;
+    category_label_hi: string;
+    count: number;
+    percentage: number;
+  }>;
+  positive_observations?: string[];
+  positive_observations_hi?: string[];
+  negative_observations?: string[];
+  negative_observations_hi?: string[];
+  recurring_issues_trends?: string[];
+  recurring_issues_trends_hi?: string[];
+  evidence_photographs?: Array<{
+    id: string;
+    photo_url: string;
+    report_number: string;
+    category: string;
+    caption_en: string;
+    caption_hi: string;
+  }>;
+  recommended_actions_en?: string[];
+  recommended_actions_hi?: string[];
+  overall_civic_condition_en?: string;
+  overall_civic_condition_hi?: string;
   data_freshness_status: string;
 }
 
@@ -419,53 +446,128 @@ export interface AreaIntelligenceReport {
   id: string;
   report_number: string;
   city_id: string;
+  city_name?: string;
   ward_id?: string;
+  ward_name?: string;
   title: string;
   status: 'draft' | 'under_review' | 'approved' | 'published';
-  report_type: string;
+  report_type?: string;
+  analysis_period?: string;
   analysis_period_start?: string;
   analysis_period_end?: string;
-  source_reports_count: number;
-  distinct_issue_groups_count: number;
-  categories_breakdown: Record<string, number>;
-  spatial_distribution: Record<string, any>;
+  source_reports_count?: number;
+  total_submissions?: number;
+  pending_count?: number;
+  resolved_count?: number;
+  distinct_issue_groups_count?: number;
+  distinct_issue_groups?: number;
+  category_distribution?: Record<string, number>;
+  categories_breakdown?: Record<string, number>;
+  spatial_distribution?: Record<string, any>;
+  spatial_distribution_summary?: string;
   recurring_issues: Array<{
-    issue_type: string;
-    frequency: number;
+    issue_type?: string;
+    category?: string;
+    frequency?: number;
+    count?: number;
     locations: string[];
     description: string;
   }>;
-  suggested_departments: Array<{
-    department_name: string;
-    action_item: string;
-    priority: string;
-  }>;
+  suggested_departments: any;
   recommended_actions: string[];
+  limitations?: string;
   limitations_notes?: string;
   confidence_score: number;
+  executive_summary?: string;
   executive_summary_en: string;
   executive_summary_hi?: string;
+  distinct_issues_breakdown?: Array<{
+    category: string;
+    category_name_en: string;
+    category_name_hi: string;
+    count: number;
+    percentage: number;
+    distinct_incidents_count: number;
+    probable_duplicates_count: number;
+    description_en: string;
+    description_hi: string;
+    locations: string[];
+    sample_quotes?: string[];
+    media_count?: number;
+    associated_media?: Array<{ report_number: string; storage_path: string }>;
+    citizen_impact_en: string;
+    citizen_impact_hi: string;
+    recommended_action_en: string;
+    recommended_action_hi: string;
+    responsible_department_en: string;
+    responsible_department_hi: string;
+  }>;
+  grouped_evidence_media?: Array<{
+    report_number: string;
+    category: string;
+    storage_path: string;
+    location_address: string;
+    created_at?: string;
+  }>;
+  probable_duplicates?: Array<{
+    category: string;
+    primary_report_number: string;
+    primary_address: string;
+    corroborating_reports: string[];
+    total_corroborations: number;
+  }>;
   source_report_ids: string[];
+  source_reports?: any[];
   created_at: string;
+  generated_at?: string;
   approved_by?: string;
 }
 
 export interface IndividualReportAIAnalysis {
   report_id: string;
   report_number: string;
+  original_complaint?: string;
   detected_language: string;
   category: string;
-  summary_en: string;
+  suggested_category?: string;
+  suggested_department?: string;
+  suggested_department_hi?: string;
+  priority_suggestion?: string;
+  urgency_level?: string;
+  sentiment_score?: any;
+  confidence?: number;
+  summary_en?: string;
   summary_hi?: string;
-  sentiment_urgency: {
+  short_summary?: string;
+  evidence_references?: string[];
+  ai_recommendations?: string[];
+  detected_duplicates?: any[];
+  reported_problem?: string;
+  reported_problem_hi?: string;
+  affected_infrastructure?: string;
+  affected_infrastructure_hi?: string;
+  reported_impact?: string;
+  reported_impact_hi?: string;
+  location_summary?: string;
+  responsible_department?: string;
+  responsible_department_hi?: string;
+  evidence_available?: string[];
+  missing_information?: string[];
+  recommended_action?: string;
+  recommended_action_hi?: string;
+  reported_facts?: string[];
+  ai_interpretations?: string[];
+  recommendations?: string[];
+  media_references?: Array<{ storage_path: string; media_type?: string }>;
+  analyzed_at?: string;
+  sentiment_urgency?: {
     urgency: string;
     sentiment_score: number;
     rationale: string;
   };
-  recommended_department: string;
-  priority_suggestion: string;
-  suggested_actions: string[];
-  confidence_score: number;
+  recommended_department?: string;
+  suggested_actions?: string[];
+  confidence_score?: number;
   potential_duplicates: Array<{
     id: string;
     report_number: string;

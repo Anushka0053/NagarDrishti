@@ -72,11 +72,18 @@ class AITriageResponse(BaseModel):
     sentiment: str
     detected_language: str
     assigned_department_name: str
+    assigned_department_name_hi: Optional[str] = None
     is_ai_prediction: bool = True
     is_insufficient_information: Optional[bool] = False
     triage_summary: str
     executive_summary_en: Optional[str] = None
     executive_summary_hi: Optional[str] = None
     extracted_hazard: Optional[str] = None
+    extracted_hazard_hi: Optional[str] = None
     recommended_action: Optional[str] = None
+    recommended_action_hi: Optional[str] = None
+    quality_status: Optional[str] = "Needs Verification"
+    quality_status_hi: Optional[str] = "स्थल सत्यापन आवश्यक"
     target_sla_hours: Optional[int] = 48
+    description_en: Optional[str] = None
+    description_hi: Optional[str] = None

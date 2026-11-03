@@ -40,6 +40,7 @@ export const GovAIIntelligencePage: React.FC = () => {
   const [savedReports, setSavedReports] = useState<AreaIntelligenceReport[]>([]);
   const [isApproving, setIsApproving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [viewLanguage, setViewLanguage] = useState<'en' | 'hi'>('en');
 
   // Set default city
   useEffect(() => {
@@ -290,6 +291,22 @@ export const GovAIIntelligencePage: React.FC = () => {
 
             {/* Actions (Hidden in Print) */}
             <div className="flex items-center gap-2.5 print:hidden">
+              {/* Language Toggle */}
+              <div className="flex items-center bg-[#1C2541] border border-[#2E3D60] rounded-xl p-0.5 text-xs font-bold">
+                <button
+                  onClick={() => setViewLanguage('en')}
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${viewLanguage === 'en' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  English
+                </button>
+                <button
+                  onClick={() => setViewLanguage('hi')}
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${viewLanguage === 'hi' ? 'bg-purple-600 text-white font-hindi' : 'text-slate-400 hover:text-white font-hindi'}`}
+                >
+                  हिंदी
+                </button>
+              </div>
+
               {generatedReport.status !== 'approved' && (
                 <button
                   onClick={() => handleApproveReport(generatedReport.id)}
@@ -319,11 +336,15 @@ export const GovAIIntelligencePage: React.FC = () => {
             </div>
             <div>
               <span className="text-[10px] text-slate-400 block print:text-slate-600">Source Grievances</span>
-              <span className="font-bold text-cyan-300 print:text-black">{generatedReport.source_reports_count} Submissions</span>
+              <span className="font-bold text-cyan-300 print:text-black">
+                {generatedReport.total_submissions ?? generatedReport.source_reports_count} Submissions
+              </span>
             </div>
             <div>
               <span className="text-[10px] text-slate-400 block print:text-slate-600">Issue Clusters</span>
-              <span className="font-bold text-purple-300 print:text-black">{generatedReport.distinct_issue_groups_count} Distinct Groups</span>
+              <span className="font-bold text-purple-300 print:text-black">
+                {generatedReport.distinct_issue_groups ?? generatedReport.distinct_issue_groups_count} Distinct Groups
+              </span>
             </div>
             <div>
               <span className="text-[10px] text-slate-400 block print:text-slate-600">AI Grounding Score</span>
@@ -335,12 +356,84 @@ export const GovAIIntelligencePage: React.FC = () => {
           <div className="space-y-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-400 print:text-black flex items-center gap-1.5">
               <FileText className="w-4 h-4" />
-              <span>Consolidated Executive Summary</span>
+              <span>{viewLanguage === 'hi' ? 'समेकित कार्यकारी सारांश (Sarvam AI)' : 'Consolidated Executive Summary (Sarvam AI)'}</span>
             </h3>
             <div className="p-4 bg-[#1C2541] rounded-xl border border-[#2E3D60] text-xs text-slate-200 leading-relaxed print:bg-white print:border-slate-300 print:text-black">
-              {generatedReport.executive_summary_en}
+              {viewLanguage === 'hi'
+                ? (generatedReport.executive_summary_hi || generatedReport.executive_summary_en || generatedReport.executive_summary)
+                : (generatedReport.executive_summary_en || generatedReport.executive_summary)}
             </div>
           </div>
+
+          {/* Distinct Issues Breakdown (Separates Multi-Complaints on same infrastructure) */}
+          {generatedReport.distinct_issues_breakdown && generatedReport.distinct_issues_breakdown.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-purple-400 print:text-black flex items-center gap-1.5">
+                <Layers className="w-4 h-4" />
+                <span>Distinct Issues Breakdown ({generatedReport.distinct_issues_breakdown.length} Categories Separated)</span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {generatedReport.distinct_issues_breakdown.map((issue, idx) => (
+                  <div key={idx} className="p-4 bg-[#1C2541] border border-[#2E3D60] rounded-xl space-y-2.5 print:bg-white print:border-slate-300">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-white text-xs print:text-black">
+                        {viewLanguage === 'hi' ? issue.category_name_hi : issue.category_name_en}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/10 text-purple-300 border border-purple-500/30">
+                        {issue.count} Reports ({issue.percentage}%)
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-300 print:text-slate-800 leading-relaxed">
+                      {viewLanguage === 'hi' ? issue.description_hi : issue.description_en}
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-2 text-[10px] font-mono p-2 bg-[#131B33] rounded-lg border border-[#2E3D60]/50 print:bg-slate-100">
+                      <div>
+                        <span className="text-slate-400 block">Distinct Sites:</span>
+                        <span className="font-bold text-cyan-300 print:text-black">{issue.distinct_incidents_count}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Probable Duplicates:</span>
+                        <span className="font-bold text-amber-300 print:text-black">{issue.probable_duplicates_count}</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2 bg-emerald-950/20 border border-emerald-500/20 rounded-lg text-[10px] text-emerald-200">
+                      <span className="font-bold block text-emerald-400 uppercase">Recommended Municipal Action:</span>
+                      <p className="mt-0.5">{viewLanguage === 'hi' ? issue.recommended_action_hi : issue.recommended_action_en}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Probable Clustered Duplicates */}
+          {generatedReport.probable_duplicates && generatedReport.probable_duplicates.length > 0 && (
+            <div className="p-4 bg-[#162038] border border-amber-500/30 rounded-xl space-y-2.5">
+              <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Detected Corroborating Duplicate Clusters ({generatedReport.probable_duplicates.length} Groups)</span>
+              </h3>
+              <p className="text-xs text-slate-300">
+                Multiple citizens reported the same physical defect within a 25m spatial radius. NagarDrishti clusters these as corroborating evidence without creating duplicated dispatch workorders.
+              </p>
+              <div className="space-y-1.5 pt-1">
+                {generatedReport.probable_duplicates.map((dup, idx) => (
+                  <div key={idx} className="p-2 bg-[#0B132B]/80 rounded-lg border border-[#2E3D60] text-[11px] flex items-center justify-between">
+                    <div>
+                      <span className="font-mono text-cyan-300 font-bold">{dup.primary_report_number}</span>
+                      <span className="text-slate-400 ml-2">({dup.primary_address})</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-amber-400 font-semibold">
+                      +{dup.corroborating_reports?.length || 0} Corroborating Reports
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Recurring Issues & Responsible Departments */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -375,7 +468,7 @@ export const GovAIIntelligencePage: React.FC = () => {
               </h3>
               <div className="p-4 bg-[#1C2541] rounded-xl border border-[#2E3D60] space-y-3 print:bg-white print:border-slate-300">
                 {generatedReport.suggested_departments && generatedReport.suggested_departments.length > 0 ? (
-                  generatedReport.suggested_departments.map((dept, i) => (
+                  generatedReport.suggested_departments.map((dept: any, i: number) => (
                     <div key={i} className="text-xs space-y-1">
                       <div className="flex justify-between font-bold text-cyan-300 print:text-black">
                         <span>{dept.department_name}</span>
