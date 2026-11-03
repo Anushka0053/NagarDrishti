@@ -40,6 +40,7 @@ class ReportStatusHistoryResponse(BaseModel):
     new_status: str
     actor_role: Optional[str] = None
     reason: Optional[str] = None
+    notes: Optional[str] = None
     created_at: datetime
 
 
@@ -62,6 +63,11 @@ class CitizenReportResponse(BaseModel):
     provenance_type: str = "citizen_submitted"
     is_public: bool
     corroboration_count: int
+    ai_metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    assigned_officer_name: Optional[str] = None
+    department_id: Optional[UUID] = None
+    resolution_summary: Optional[str] = None
+    resolved_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     media: List[ReportMediaResponse] = Field(default_factory=list)
@@ -71,3 +77,12 @@ class CitizenReportResponse(BaseModel):
 class ReportCorroborateRequest(BaseModel):
     corroboration_type: str = "confirm_issue"
     comment: Optional[str] = None
+
+
+class CitizenReportStatusUpdate(BaseModel):
+    status: str
+    reason: Optional[str] = None
+    notes: Optional[str] = None
+    assigned_officer_name: Optional[str] = None
+    department_id: Optional[UUID] = None
+    resolution_summary: Optional[str] = None

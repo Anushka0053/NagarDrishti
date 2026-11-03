@@ -43,7 +43,6 @@ Desktop.ini
 powershell.cmd
 /extract_srs.py
 /NagarDrishti_Detailed_SRS_v1.1.docx
-/docs
 
 # Publish only the consolidated, maintained documentation.
 # Add an explicit exception below when introducing another public Markdown file.
@@ -51,3 +50,5 @@ powershell.cmd
 !/README.md
 !/PROJECT_GUIDE.md
 !/SECURITY.md
+/docs
+

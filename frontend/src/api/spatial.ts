@@ -1,10 +1,28 @@
 import { apiClient } from './client';
 import { 
   BufferAnalysisResult, ProximityAnalysisResult, RouteAnalysisResult,
-  MeasureResult, CompareResult, SuitabilityResult
+  MeasureResult, CompareResult, SuitabilityResult, IdentifyResult, ResolvedLocation
 } from '../types';
 
 export const spatialApi = {
+  identifyAtCoordinate: (payload: {
+    latitude: number;
+    longitude: number;
+    tolerance_meters?: number;
+    city_id?: string;
+  }) => apiClient<IdentifyResult[]>('/spatial/identify', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+
+  resolveLocation: (payload: {
+    latitude: number;
+    longitude: number;
+  }) => apiClient<ResolvedLocation>('/spatial/resolve-location', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+
   runBufferAnalysis: (payload: {
     origin_latitude: number;
     origin_longitude: number;

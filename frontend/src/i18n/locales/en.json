@@ -19,6 +19,12 @@
     "sources": "Data Sources",
     "layers": "Layers Catalog"
   },
+  "header": {
+    "report_issue": "Report Issue",
+    "voice_search": "Voice Search",
+    "admin_portal": "Government Portal",
+    "reports_stream": "Reports Center"
+  },
   "sidebar": {
     "layers_tab": "Layers",
     "sectors_tab": "Sectors",
@@ -26,6 +32,7 @@
     "basemap_tab": "Basemaps",
     "legend_tab": "Legend",
     "active_layers": "Active Layers",
+    "total": "Layers Total",
     "search_layers": "Search GIS layers...",
     "no_layers_found": "No layers match your search",
     "opacity": "Opacity",

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.core.database import get_db
+from app.core.security import require_roles, sanitize_and_validate_file_upload
 from app.schemas.datasets import (
     DatasetValidateResponse, DatasetImportRequest, DatasetImportResponse,
     AdminCreateFeatureRequest, AdminFeatureResponse
@@ -22,9 +23,13 @@ async def validate_dataset_upload(
     """
     try:
         content = await file.read()
-        return DatasetService.validate_and_preview(file.filename, content)
+        mime_type = file.content_type or "application/geo+json"
+        safe_filename = sanitize_and_validate_file_upload(file.filename, len(content), mime_type)
+        return DatasetService.validate_and_preview(safe_filename, content)
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

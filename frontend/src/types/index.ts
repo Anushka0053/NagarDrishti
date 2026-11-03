@@ -80,6 +80,8 @@ export interface GISLayer {
   sector_id?: string;
   department_id?: string;
   source_id?: string;
+  category?: string;
+  feature_count?: number;
   geometry_type: 'POINT' | 'LINESTRING' | 'POLYGON' | 'MULTIPOINT' | 'MULTILINESTRING' | 'MULTIPOLYGON';
   source_type: string;
   default_visibility: boolean;
@@ -92,6 +94,7 @@ export interface GISLayer {
     fill_opacity?: number;
     stroke_color?: string;
     stroke_width?: number;
+    stroke_opacity?: number;
     point_radius?: number;
     icon_image?: string;
   };
@@ -183,12 +186,22 @@ export interface CityAnalytics {
   resolved_reports?: number;
   active_clusters_count?: number;
   verified_features_count?: number;
+  mapped_features_count?: number;
+  healthcare_count?: number;
+  education_count?: number;
+  safety_count?: number;
+  roads_count?: number;
+  civic_count?: number;
+  available_wards_count?: number;
+  connected_sources_count?: number;
   resolution_rate?: number | null;
   resolution_rate_percent?: number | null;
   avg_resolution_hours?: number | null;
+  sla_adherence_rate?: number | null;
   active_issue_clusters?: number;
   total_gis_features?: number;
   data_sources_connected?: number;
+  data_sources_count?: number;
   total_data_sources?: number;
   data_truth_note?: string;
   category_breakdown?: CategoryBreakdown[];
@@ -239,6 +252,8 @@ export interface IdentifyResult {
 }
 
 export interface IdentifiedFeature extends IdentifyResult {
+  id?: string;
+  source_record_id?: string;
   geometry?: any;
   city_name?: string;
   ward_name?: string;
@@ -264,6 +279,33 @@ export interface CitizenReport {
   latitude: number;
   longitude: number;
   location_address?: string;
+  ai_metadata?: {
+    is_ai_prediction?: boolean;
+    predicted_category?: string;
+    predicted_urgency?: string;
+    predicted_department?: string;
+    sentiment_score?: number;
+    confidence?: number;
+    detected_language?: string;
+    summary_en?: string;
+    summary_hi?: string;
+    detected_duplicates?: any[];
+    [key: string]: any;
+  };
+  assigned_officer_name?: string;
+  department_id?: string;
+  resolution_summary?: string;
+  resolved_at?: string;
+  updated_at?: string;
+  status_history?: {
+    id: string;
+    previous_status?: string;
+    new_status: string;
+    actor_role?: string;
+    reason?: string;
+    notes?: string;
+    created_at: string;
+  }[];
   created_at: string;
 }
 
@@ -282,6 +324,41 @@ export interface IssueCluster {
   provenance_type?: ProvenanceType;
 }
 
+export type UserRole = 
+  | 'super_admin' 
+  | 'city_admin' 
+  | 'department_head' 
+  | 'field_officer' 
+  | 'gis_officer' 
+  | 'citizen';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  city_id?: string;
+  department_id?: string;
+  phone_number?: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+}
+
+export interface LinkedCitizenReport {
+  id: string;
+  report_number: string;
+  title: string;
+  category: string;
+  status: string;
+  distance_meters: number;
+  relationship_type: 'located_at' | 'nearby' | 'reported_against' | 'infrastructure_associated';
+  created_at: string;
+}
+
 export interface EntityIntelligence {
   entity_type: string;
   entity_id: string;
@@ -294,7 +371,8 @@ export interface EntityIntelligence {
   };
   active_reports_count: number;
   resolved_reports_count: number;
-  public_records: Array<{
+  linked_citizen_reports?: LinkedCitizenReport[];
+  public_records?: Array<{
     id: string;
     title_en: string;
     title_hi: string;
@@ -306,6 +384,97 @@ export interface EntityIntelligence {
   data_freshness_status: string;
 }
 
+export interface AreaReportPreviewRequest {
+  city_id: string;
+  ward_id?: string;
+  bbox?: number[];
+  custom_polygon?: any;
+  start_date?: string;
+  end_date?: string;
+  categories?: string[];
+  statuses?: string[];
+}
+
+export interface AreaReportGenerateRequest extends AreaReportPreviewRequest {
+  title?: string;
+}
+
+export interface AreaReportPreviewResponse {
+  report_count: number;
+  categories: Record<string, number>;
+  statuses: Record<string, number>;
+  sample_reports: Array<{
+    id: string;
+    report_number: string;
+    title: string;
+    category: string;
+    status: string;
+    created_at: string;
+    latitude: number;
+    longitude: number;
+  }>;
+}
+
+export interface AreaIntelligenceReport {
+  id: string;
+  report_number: string;
+  city_id: string;
+  ward_id?: string;
+  title: string;
+  status: 'draft' | 'under_review' | 'approved' | 'published';
+  report_type: string;
+  analysis_period_start?: string;
+  analysis_period_end?: string;
+  source_reports_count: number;
+  distinct_issue_groups_count: number;
+  categories_breakdown: Record<string, number>;
+  spatial_distribution: Record<string, any>;
+  recurring_issues: Array<{
+    issue_type: string;
+    frequency: number;
+    locations: string[];
+    description: string;
+  }>;
+  suggested_departments: Array<{
+    department_name: string;
+    action_item: string;
+    priority: string;
+  }>;
+  recommended_actions: string[];
+  limitations_notes?: string;
+  confidence_score: number;
+  executive_summary_en: string;
+  executive_summary_hi?: string;
+  source_report_ids: string[];
+  created_at: string;
+  approved_by?: string;
+}
+
+export interface IndividualReportAIAnalysis {
+  report_id: string;
+  report_number: string;
+  detected_language: string;
+  category: string;
+  summary_en: string;
+  summary_hi?: string;
+  sentiment_urgency: {
+    urgency: string;
+    sentiment_score: number;
+    rationale: string;
+  };
+  recommended_department: string;
+  priority_suggestion: string;
+  suggested_actions: string[];
+  confidence_score: number;
+  potential_duplicates: Array<{
+    id: string;
+    report_number: string;
+    title: string;
+    distance_meters: number;
+    status: string;
+  }>;
+}
+
 export interface SearchResult {
   properties?: Record<string, any>;
   provenance_type?: ProvenanceType;
@@ -314,7 +483,7 @@ export interface SearchResult {
   id: string;
   title: string;
   subtitle: string;
-  type: 'city' | 'ward' | 'feature' | 'coordinate' | 'admin_unit' | 'external';
+  type: 'city' | 'ward' | 'feature' | 'coordinate' | 'admin_unit' | 'external' | 'external_place';
   category?: string | null;
   city_id?: string | null;
   ward_id?: string | null;

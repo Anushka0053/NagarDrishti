@@ -79,3 +79,77 @@ class EntityIntelligenceBundle(BaseModel):
     ai_grounded_summary_hi: Optional[str] = None
     ai_grounded_summary_en: Optional[str] = None
     data_freshness_status: str = "healthy"
+
+
+class AreaReportPreviewRequest(BaseModel):
+    city_id: UUID
+    ward_id: Optional[UUID] = None
+    bbox: Optional[List[float]] = None  # [min_lng, min_lat, max_lng, max_lat]
+    categories: Optional[List[str]] = None
+    statuses: Optional[List[str]] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
+class AreaReportGenerateRequest(AreaReportPreviewRequest):
+    title: Optional[str] = None
+    language: str = "en"  # "en" or "hi"
+    notes: Optional[str] = None
+
+
+class AreaReportUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    executive_summary: Optional[str] = None
+    recommended_actions: Optional[List[str]] = None
+    status: Optional[str] = None  # "draft", "reviewed", "approved"
+    approved_by: Optional[str] = None
+
+
+class AreaIntelligenceReportResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    report_number: str
+    title: str
+    city_id: UUID
+    city_name: str
+    ward_id: Optional[UUID] = None
+    ward_name: Optional[str] = None
+    analysis_period: str
+    generated_at: datetime
+    total_submissions: int
+    pending_count: int
+    resolved_count: int
+    distinct_issue_groups: int
+    category_distribution: Dict[str, int]
+    spatial_distribution_summary: str
+    recurring_issues: List[Dict[str, Any]]
+    evidence_references: List[Dict[str, Any]]
+    suggested_departments: List[str]
+    recommended_actions: List[str]
+    executive_summary: str
+    confidence_score: float
+    limitations: str
+    source_report_ids: List[str]
+    source_reports: List[Dict[str, Any]] = Field(default_factory=list)
+    status: str = "draft"
+    approved_by: Optional[str] = None
+
+
+class IndividualReportAIAnalysisResponse(BaseModel):
+    report_id: UUID
+    report_number: str
+    original_complaint: str
+    detected_language: str
+    short_summary: str
+    category: str
+    suggested_category: str
+    suggested_department: str
+    priority_suggestion: str
+    urgency_level: str
+    sentiment_score: str
+    confidence: float
+    evidence_references: List[str]
+    ai_recommendations: List[str]
+    detected_duplicates: List[Dict[str, Any]] = Field(default_factory=list)
+    analyzed_at: datetime

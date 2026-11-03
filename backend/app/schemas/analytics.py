@@ -40,6 +40,13 @@ class CityAnalyticsResponse(BaseModel):
     avg_resolution_hours: Optional[float] = None
     sla_adherence_rate: Optional[float] = None
     verified_features_count: int = 0
+    mapped_features_count: int = 0
+    healthcare_count: int = 0
+    education_count: int = 0
+    safety_count: int = 0
+    roads_count: int = 0
+    civic_count: int = 0
+    data_sources_count: int = 5
     active_clusters_count: int = 0
     category_breakdown: List[CategoryBreakdownItem] = Field(default_factory=list)
     ward_breakdown: List[WardBreakdownItem] = Field(default_factory=list)

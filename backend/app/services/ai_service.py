@@ -62,11 +62,15 @@ class AIService:
                 cached=True
             )
 
+        def _norm_lang(code: str) -> str:
+            code = (code or "hi").strip()
+            return code if "-" in code else f"{code}-IN"
+
         # Call Sarvam Translation
         res = await self.sarvam.translate_text(
             text=request.text,
-            source_lang=f"{request.source_language}-IN",
-            target_lang=f"{request.target_language}-IN"
+            source_lang=_norm_lang(request.source_language),
+            target_lang=_norm_lang(request.target_language)
         )
 
         translated = res.get("translated_text", request.text)

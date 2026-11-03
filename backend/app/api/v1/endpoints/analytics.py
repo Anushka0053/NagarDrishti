@@ -49,11 +49,45 @@ def get_city_analytics(city_id: UUID, db: Session = Depends(get_db)):
 
     resolution_rate = round((resolved_reports / total_reports) * 100.0, 1) if total_reports > 0 else None
 
-    # 2. Verified GIS features count
+    # Average resolution time in hours
+    avg_hours_raw = db.query(
+        func.avg(
+            func.extract('epoch', CitizenReport.resolved_at - CitizenReport.created_at) / 3600.0
+        )
+    ).filter(
+        CitizenReport.city_id == city_id,
+        CitizenReport.resolved_at.isnot(None),
+        CitizenReport.is_public.is_(True)
+    ).scalar()
+    avg_resolution_hours = round(float(avg_hours_raw), 1) if avg_hours_raw is not None else None
+
+    # SLA adherence rate (resolved within 72 hours)
+    sla_resolved = db.query(
+        func.count(CitizenReport.id)
+    ).filter(
+        CitizenReport.city_id == city_id,
+        CitizenReport.resolved_at.isnot(None),
+        func.extract('epoch', CitizenReport.resolved_at - CitizenReport.created_at) <= 259200
+    ).scalar() or 0
+    sla_adherence_rate = round((sla_resolved / resolved_reports) * 100.0, 1) if resolved_reports > 0 else None
+
+    # 2. Verified GIS features count & category breakdown
     features_count = db.query(func.count(GISFeature.id)).filter(
         GISFeature.city_id == city_id,
         GISFeature.is_active == True, GISFeature.provenance_type != 'development_fixture'
     ).scalar() or 0
+
+    feature_cats = db.query(GISFeature.category, func.count(GISFeature.id)).filter(
+        GISFeature.city_id == city_id,
+        GISFeature.is_active == True,
+        GISFeature.provenance_type != 'development_fixture'
+    ).group_by(GISFeature.category).all()
+    cat_map = {row[0]: row[1] for row in feature_cats}
+    healthcare_count = cat_map.get('healthcare', 0)
+    education_count = cat_map.get('education', 0)
+    safety_count = cat_map.get('public_safety', 0)
+    roads_count = cat_map.get('roads', 0)
+    civic_count = cat_map.get('government', 0) + cat_map.get('civic', 0)
 
     # 3. Active clusters count
     active_clusters_count = db.query(func.count(IssueCluster.id)).filter(
@@ -119,9 +153,16 @@ def get_city_analytics(city_id: UUID, db: Session = Depends(get_db)):
         resolved_reports=resolved_reports,
         in_progress_reports=in_progress_reports,
         resolution_rate=resolution_rate,
-        avg_resolution_hours=None,
-        sla_adherence_rate=None,
+        avg_resolution_hours=avg_resolution_hours,
+        sla_adherence_rate=sla_adherence_rate,
         verified_features_count=features_count,
+        mapped_features_count=features_count,
+        healthcare_count=healthcare_count,
+        education_count=education_count,
+        safety_count=safety_count,
+        roads_count=roads_count,
+        civic_count=civic_count,
+        data_sources_count=5,
         active_clusters_count=active_clusters_count,
         category_breakdown=category_breakdown,
         ward_breakdown=ward_breakdown,
@@ -154,6 +195,28 @@ def get_ward_analytics(ward_id: UUID, db: Session = Depends(get_db)):
     in_progress_reports = report_stats.in_progress if report_stats else 0
 
     resolution_rate = round((resolved_reports / total_reports) * 100.0, 1) if total_reports > 0 else None
+
+    # Average resolution time in hours
+    avg_hours_raw = db.query(
+        func.avg(
+            func.extract('epoch', CitizenReport.resolved_at - CitizenReport.created_at) / 3600.0
+        )
+    ).filter(
+        CitizenReport.ward_id == ward_id,
+        CitizenReport.resolved_at.isnot(None),
+        CitizenReport.is_public.is_(True)
+    ).scalar()
+    avg_resolution_hours = round(float(avg_hours_raw), 1) if avg_hours_raw is not None else None
+
+    # SLA adherence rate (resolved within 72 hours)
+    sla_resolved = db.query(
+        func.count(CitizenReport.id)
+    ).filter(
+        CitizenReport.ward_id == ward_id,
+        CitizenReport.resolved_at.isnot(None),
+        func.extract('epoch', CitizenReport.resolved_at - CitizenReport.created_at) <= 259200
+    ).scalar() or 0
+    sla_adherence_rate = round((sla_resolved / resolved_reports) * 100.0, 1) if resolved_reports > 0 else None
 
     features_count = db.query(func.count(GISFeature.id)).filter(
         GISFeature.ward_id == ward_id,

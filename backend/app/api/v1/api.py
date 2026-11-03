@@ -15,11 +15,13 @@ from app.api.v1.endpoints import (
     coverage,
     analytics,
     admin_datasets,
+    auth,
 )
 
 api_router = APIRouter()
 
 api_router.include_router(health.router, prefix="", tags=["System"])
+api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_router.include_router(admin_units.router, prefix="/admin-units", tags=["Admin Units"])
 api_router.include_router(cities.router, prefix="/cities", tags=["Cities"])
 api_router.include_router(layers.router, prefix="/layers", tags=["Layers"])

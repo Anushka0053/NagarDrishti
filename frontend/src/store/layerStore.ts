@@ -8,8 +8,11 @@ interface LayerState {
   selectedFeature: IdentifiedFeature | null;
   selectedSectorId: string | null;
   selectedDepartmentId: string | null;
+  selectedProvenance: string | null;
+  selectedCategory: string | null;
   layerSearchQuery: string;
   showWardBoundaries: boolean;
+  showIssueHotspots: boolean;
 
   setLayers: (layers: GISLayer[]) => void;
   toggleLayer: (layerId: string) => void;
@@ -20,9 +23,14 @@ interface LayerState {
   setSelectedFeature: (feature: IdentifiedFeature | null) => void;
   setSelectedSectorId: (sectorId: string | null) => void;
   setSelectedDepartmentId: (deptId: string | null) => void;
+  setSelectedProvenance: (prov: string | null) => void;
+  setSelectedCategory: (cat: string | null) => void;
+  clearAllFilters: () => void;
   setLayerSearchQuery: (query: string) => void;
   setShowWardBoundaries: (show: boolean) => void;
   toggleWardBoundaries: () => void;
+  setShowIssueHotspots: (show: boolean) => void;
+  toggleIssueHotspots: () => void;
 }
 
 export const useLayerStore = create<LayerState>((set) => ({
@@ -32,8 +40,11 @@ export const useLayerStore = create<LayerState>((set) => ({
   selectedFeature: null,
   selectedSectorId: null,
   selectedDepartmentId: null,
+  selectedProvenance: null,
+  selectedCategory: null,
   layerSearchQuery: '',
   showWardBoundaries: false,
+  showIssueHotspots: true,
 
   setLayers: (layers) => set({ layers }),
   toggleLayer: (layerId) =>
@@ -71,8 +82,19 @@ export const useLayerStore = create<LayerState>((set) => ({
   setSelectedFeature: (feature) => set({ selectedFeature: feature }),
   setSelectedSectorId: (sectorId) => set({ selectedSectorId: sectorId }),
   setSelectedDepartmentId: (deptId) => set({ selectedDepartmentId: deptId }),
+  setSelectedProvenance: (prov) => set({ selectedProvenance: prov }),
+  setSelectedCategory: (cat) => set({ selectedCategory: cat }),
+  clearAllFilters: () =>
+    set({
+      selectedSectorId: null,
+      selectedDepartmentId: null,
+      selectedProvenance: null,
+      selectedCategory: null,
+      layerSearchQuery: '',
+    }),
   setLayerSearchQuery: (query) => set({ layerSearchQuery: query }),
   setShowWardBoundaries: (show) => set({ showWardBoundaries: show }),
   toggleWardBoundaries: () => set((state) => ({ showWardBoundaries: !state.showWardBoundaries })),
+  setShowIssueHotspots: (show) => set({ showIssueHotspots: show }),
+  toggleIssueHotspots: () => set((state) => ({ showIssueHotspots: !state.showIssueHotspots })),
 }));
-
